@@ -7,6 +7,7 @@
   <!-- Firebase v8 SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
   <style>
     body {
@@ -17,7 +18,9 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
+      margin: 0;
     }
+
     .box {
       background: white;
       color: black;
@@ -26,11 +29,13 @@
       width: 300px;
       text-align: center;
     }
+
     input {
       width: 100%;
       padding: 8px;
       margin: 6px 0;
     }
+
     button {
       width: 100%;
       padding: 10px;
@@ -40,6 +45,7 @@
       cursor: pointer;
       margin-top: 10px;
     }
+
     .msg {
       margin-top: 10px;
       color: red;
@@ -78,7 +84,9 @@
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
+
     const auth = firebase.auth();
+    const db = firebase.firestore();
 
     function login() {
       const email = document.getElementById("email").value;
@@ -86,7 +94,15 @@
 
       auth.signInWithEmailAndPassword(email, password)
         .then(() => {
-          // Hide login, show app
+          const user = auth.currentUser;
+
+          // Create user document (one-time, safe with merge)
+          db.collection("users").doc(user.uid).set({
+            email: user.email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+
+          // Move to app area
           document.getElementById("loginBox").style.display = "none";
           document.getElementById("appArea").style.display = "block";
         })
