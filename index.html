@@ -1,64 +1,74 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker – Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <title>Sadhana Tracker</title>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <!-- Firebase v8 SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
   <style>
     body {
-      margin: 0;
+      background-color: #0a1a6a;
       font-family: Arial, sans-serif;
-      background: #000080;
       color: white;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
     }
-    .card {
+    .box {
       background: white;
-      color: #000080;
-      padding: 30px;
-      border-radius: 12px;
+      color: black;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
       text-align: center;
-      width: 320px;
     }
     input {
       width: 100%;
-      padding: 10px;
-      margin: 8px 0;
+      padding: 8px;
+      margin: 6px 0;
     }
     button {
       width: 100%;
       padding: 10px;
-      background: #000080;
+      background: #0a1a6a;
       color: white;
       border: none;
       cursor: pointer;
+      margin-top: 10px;
     }
     .msg {
       margin-top: 10px;
-      font-size: 14px;
+      color: red;
     }
   </style>
 </head>
 
 <body>
-  <div class="card">
+
+  <!-- LOGIN AREA -->
+  <div class="box" id="loginBox">
     <h2>🙏 Sadhana Tracker</h2>
 
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
 
     <button onclick="login()">Login</button>
 
     <div class="msg" id="msg"></div>
   </div>
 
+  <!-- APP AREA (HIDDEN INITIALLY) -->
+  <div class="box" id="appArea" style="display:none;">
+    <h2>🙏 Welcome to Sadhana Tracker</h2>
+    <p>Phase 1 completed successfully.</p>
+  </div>
+
   <script>
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
       authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -66,6 +76,7 @@
       appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
     };
 
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
@@ -75,12 +86,15 @@
 
       auth.signInWithEmailAndPassword(email, password)
         .then(() => {
-          document.getElementById("msg").innerText = "Login successful 🙏";
+          // Hide login, show app
+          document.getElementById("loginBox").style.display = "none";
+          document.getElementById("appArea").style.display = "block";
         })
         .catch(error => {
           document.getElementById("msg").innerText = error.message;
         });
     }
   </script>
+
 </body>
 </html>
