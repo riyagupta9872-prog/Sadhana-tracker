@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker</title>
+  <title>Sadhana Tracker – Auth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase -->
+  <!-- Firebase Auth only -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     body {
@@ -27,7 +26,7 @@
       width: 320px;
       text-align: center;
     }
-    input, select {
+    input {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
@@ -39,51 +38,43 @@
       color: white;
       border: none;
       margin-top: 10px;
+      cursor: pointer;
     }
     .msg {
       margin-top: 10px;
       font-size: 14px;
       color: red;
     }
-    .loading {
+    .success {
       color: green;
-      font-size: 14px;
     }
   </style>
 </head>
 
 <body>
 
-<!-- AUTH -->
-<div class="card" id="authScreen">
+<!-- LOGIN SCREEN -->
+<div class="card" id="loginScreen">
   <h2>🙏 Sadhana Tracker</h2>
+
   <input type="email" id="email" placeholder="Email" />
   <input type="password" id="password" placeholder="Password" />
+
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-  <div class="loading" id="loading"></div>
+
   <div class="msg" id="msg"></div>
 </div>
 
-<!-- CATEGORY -->
-<div class="card" id="categoryScreen" style="display:none;">
-  <h3>Select Chanting Category</h3>
-  <select id="categorySelect">
-    <option value="">-- Select --</option>
-  </select>
-  <button onclick="saveCategory()">Save Category</button>
-  <div class="msg" id="catMsg"></div>
-</div>
-
-<!-- WELCOME -->
-<div class="card" id="welcomeScreen" style="display:none;">
-  <h2>🙏 Welcome</h2>
-  <p>You are logged in successfully</p>
-  <p><strong>Sadhana Tracker</strong></p>
+<!-- LOGGED IN SCREEN -->
+<div class="card" id="homeScreen" style="display:none;">
+  <h2>✅ Logged In</h2>
+  <p>You are successfully logged in.</p>
   <button onclick="logout()">Logout</button>
 </div>
 
 <script>
+  // Firebase config (yours)
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -93,111 +84,52 @@
 
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  const db = firebase.firestore();
 
-  // AUTH STATE LISTENER
+  // 🔑 AUTH STATE (THIS IS THE CORE)
   auth.onAuthStateChanged(user => {
-    document.getElementById("loading").innerText = "";
-
-    if (!user) {
-      showAuth();
-      return;
+    if (user) {
+      showHome();
+    } else {
+      showLogin();
     }
-
-    db.collection("users").doc(user.uid).get()
-      .then(doc => {
-        if (!doc.exists || !doc.data().currentCategoryId) {
-          showCategory();
-          loadCategories();
-        } else {
-          showWelcome();
-        }
-      });
   });
 
   function login() {
     clearMsg();
-    loading.innerText = "Checking login...";
-    auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => {
-        loading.innerText = "";
-        msg.innerText = e.message;
-      });
+    auth.signInWithEmailAndPassword(
+      email.value,
+      password.value
+    ).catch(e => showMsg(e.message));
   }
 
   function signup() {
     clearMsg();
-    loading.innerText = "Creating account...";
-    auth.createUserWithEmailAndPassword(email.value, password.value)
-      .then(() => {
-        showCategory();
-        loadCategories();
-      })
-      .catch(e => {
-        loading.innerText = "";
-        msg.innerText = e.message;
-      });
-  }
-
-  function loadCategories() {
-    const sel = categorySelect;
-    sel.innerHTML = '<option value="">-- Select --</option>';
-
-    db.collection("chantingCategories")
-      .where("active", "==", true)
-      .get()
-      .then(snap => {
-        snap.forEach(doc => {
-          const o = document.createElement("option");
-          o.value = doc.id;
-          o.innerText = doc.data().name;
-          sel.appendChild(o);
-        });
-      });
-  }
-
-  function saveCategory() {
-    const cat = categorySelect.value;
-    const user = auth.currentUser;
-
-    if (!cat) {
-      catMsg.innerText = "Please select a category";
-      return;
-    }
-
-    db.collection("users").doc(user.uid).set({
-      email: user.email,
-      currentCategoryId: cat,
-      role: "user",
-      isActive: true
-    }).then(() => showWelcome());
+    auth.createUserWithEmailAndPassword(
+      email.value,
+      password.value
+    ).catch(e => showMsg(e.message));
   }
 
   function logout() {
     auth.signOut();
   }
 
+  function showLogin() {
+    loginScreen.style.display = "block";
+    homeScreen.style.display = "none";
+  }
+
+  function showHome() {
+    loginScreen.style.display = "none";
+    homeScreen.style.display = "block";
+  }
+
+  function showMsg(text) {
+    msg.innerText = text;
+  }
+
   function clearMsg() {
     msg.innerText = "";
-    catMsg.innerText = "";
-  }
-
-  function showAuth() {
-    authScreen.style.display = "block";
-    categoryScreen.style.display = "none";
-    welcomeScreen.style.display = "none";
-  }
-
-  function showCategory() {
-    authScreen.style.display = "none";
-    categoryScreen.style.display = "block";
-    welcomeScreen.style.display = "none";
-  }
-
-  function showWelcome() {
-    authScreen.style.display = "none";
-    categoryScreen.style.display = "none";
-    welcomeScreen.style.display = "block";
   }
 </script>
 
