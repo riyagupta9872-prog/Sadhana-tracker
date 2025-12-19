@@ -45,13 +45,14 @@
     .msg {
       margin-top: 10px;
       font-size: 14px;
+      color: red;
     }
   </style>
 </head>
 
 <body>
 
-<!-- LOGIN / SIGNUP -->
+<!-- AUTH -->
 <div class="card" id="authScreen">
   <h2>🙏 Sadhana Tracker</h2>
   <input type="email" id="email" placeholder="Email" />
@@ -78,7 +79,6 @@
 </div>
 
 <script>
-  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -90,37 +90,36 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // 🔥 AUTO LOGIN CHECK (MOST IMPORTANT PART)
+  // 🔥 AUTO LOGIN HANDLER (FIXED)
   auth.onAuthStateChanged(user => {
     if (!user) {
       showAuth();
-    } else {
-      db.collection("users").doc(user.uid).get().then(doc => {
-        if (doc.exists && doc.data().currentCategoryId) {
-          showWelcome();
-        } else {
+      return;
+    }
+
+    db.collection("users").doc(user.uid).get()
+      .then(doc => {
+        if (!doc.exists || !doc.data().currentCategoryId) {
           showCategory();
           loadCategories();
+        } else {
+          showWelcome();
         }
       });
-    }
   });
 
   function login() {
-    auth.signInWithEmailAndPassword(
-      email.value,
-      password.value
-    ).catch(e => msg.innerText = e.message);
+    auth.signInWithEmailAndPassword(email.value, password.value)
+      .catch(e => msg.innerText = e.message);
   }
 
   function signup() {
-    auth.createUserWithEmailAndPassword(
-      email.value,
-      password.value
-    ).then(() => {
-      showCategory();
-      loadCategories();
-    }).catch(e => msg.innerText = e.message);
+    auth.createUserWithEmailAndPassword(email.value, password.value)
+      .then(() => {
+        showCategory();
+        loadCategories();
+      })
+      .catch(e => msg.innerText = e.message);
   }
 
   function loadCategories() {
@@ -131,10 +130,10 @@
       .get()
       .then(snap => {
         snap.forEach(doc => {
-          const o = document.createElement("option");
-          o.value = doc.id;
-          o.text = doc.data().name;
-          sel.appendChild(o);
+          const opt = document.createElement("option");
+          opt.value = doc.id;
+          opt.text = doc.data().name;
+          sel.appendChild(opt);
         });
       });
   }
@@ -144,7 +143,7 @@
     const cat = categorySelect.value;
 
     if (!cat) {
-      catMsg.innerText = "Please select category";
+      catMsg.innerText = "Please select a category";
       return;
     }
 
