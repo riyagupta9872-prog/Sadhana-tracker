@@ -4,7 +4,7 @@
   <title>Sadhana Tracker – Auth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase Auth only -->
+  <!-- Firebase Auth -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
@@ -45,16 +45,23 @@
       font-size: 14px;
       color: red;
     }
-    .success {
-      color: green;
+    .loading {
+      color: #000080;
+      font-size: 16px;
+      font-weight: bold;
     }
   </style>
 </head>
 
 <body>
 
-<!-- LOGIN SCREEN -->
-<div class="card" id="loginScreen">
+<!-- LOADING SCREEN -->
+<div class="card" id="loadingScreen">
+  <p class="loading">Checking session…</p>
+</div>
+
+<!-- LOGIN / SIGNUP -->
+<div class="card" id="loginScreen" style="display:none;">
   <h2>🙏 Sadhana Tracker</h2>
 
   <input type="email" id="email" placeholder="Email" />
@@ -66,7 +73,7 @@
   <div class="msg" id="msg"></div>
 </div>
 
-<!-- LOGGED IN SCREEN -->
+<!-- HOME -->
 <div class="card" id="homeScreen" style="display:none;">
   <h2>✅ Logged In</h2>
   <p>You are successfully logged in.</p>
@@ -74,7 +81,7 @@
 </div>
 
 <script>
-  // Firebase config (yours)
+  // Firebase config (YOUR PROJECT)
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -85,7 +92,7 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
 
-  // 🔑 AUTH STATE (THIS IS THE CORE)
+  // 🔑 AUTH STATE HANDLER (CLEAN & PROFESSIONAL)
   auth.onAuthStateChanged(user => {
     if (user) {
       showHome();
@@ -115,11 +122,13 @@
   }
 
   function showLogin() {
-    loginScreen.style.display = "block";
+    loadingScreen.style.display = "none";
     homeScreen.style.display = "none";
+    loginScreen.style.display = "block";
   }
 
   function showHome() {
+    loadingScreen.style.display = "none";
     loginScreen.style.display = "none";
     homeScreen.style.display = "block";
   }
