@@ -24,10 +24,10 @@
       color: #000080;
       padding: 30px;
       border-radius: 12px;
-      width: 340px;
+      width: 360px;
       text-align: center;
     }
-    input {
+    input, select {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
@@ -46,10 +46,9 @@
       font-size: 14px;
       color: red;
     }
-    .status {
-      margin-top: 10px;
-      font-size: 14px;
+    .ok {
       color: green;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -58,28 +57,44 @@
 
 <!-- LOADING -->
 <div class="card" id="loadingScreen">
-  <p class="status">Checking session…</p>
+  <p class="ok">Checking session…</p>
 </div>
 
 <!-- AUTH -->
 <div class="card" id="authScreen" style="display:none;">
   <h2>🙏 Sadhana Tracker</h2>
   <input type="email" id="email" placeholder="Email" />
-  <input type="password" id="password" placeholder="Password" />
+  <input type="password" id="password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
   <div class="msg" id="msg"></div>
 </div>
 
+<!-- CATEGORY (MANDATORY) -->
+<div class="card" id="categoryScreen" style="display:none;">
+  <h3>Select Chanting Category</h3>
+  <select id="categorySelect"></select>
+  <button onclick="saveCategory()">Save & Continue</button>
+  <div class="msg" id="catMsg"></div>
+</div>
+
 <!-- HOME -->
 <div class="card" id="homeScreen" style="display:none;">
-  <h2>✅ Access Granted</h2>
-  <p id="roleText"></p>
+  <h3 id="welcomeText"></h3>
+  <button onclick="openCategory()">Change Category</button>
   <button onclick="logout()">Logout</button>
 </div>
 
+<!-- ADMIN -->
+<div class="card" id="adminScreen" style="display:none;">
+  <h3>Admin – Chanting Categories</h3>
+  <input type="text" id="newCatName" placeholder="Category name (e.g. 8–12 rounds)" />
+  <button onclick="addCategory()">Add Category</button>
+  <div id="catList"></div>
+</div>
+
 <script>
-  /* 🔧 Firebase Config */
+  /* Firebase */
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -92,8 +107,9 @@
   const db = firebase.firestore();
 
   const ADMIN_EMAIL = "riyagupta9872@gmail.com";
+  let currentUserRole = "user";
 
-  /* 🔑 AUTH STATE */
+  /* AUTH STATE */
   auth.onAuthStateChanged(user => {
     if (!user) {
       showAuth();
@@ -104,71 +120,125 @@
 
     userRef.get().then(doc => {
       if (!doc.exists) {
-        // First time user
         const role = user.email === ADMIN_EMAIL ? "admin" : "user";
-
         userRef.set({
           email: user.email,
-          role: role,
-          isActive: true,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(() => {
-          showHome(role);
-        });
-
+          role,
+          isActive: true
+        }).then(() => loadUser(user.uid));
       } else {
-        const data = doc.data();
-
-        if (!data.isActive) {
-          auth.signOut();
-          showError("Your account is disabled. Contact admin.");
-          return;
-        }
-
-        showHome(data.role);
+        loadUser(user.uid);
       }
     });
   });
 
-  /* ACTIONS */
+  function loadUser(uid) {
+    db.collection("users").doc(uid).get().then(doc => {
+      const data = doc.data();
+      currentUserRole = data.role;
+
+      if (!data.currentCategoryId) {
+        loadCategories();
+        showCategory();
+      } else {
+        showHome(data.email);
+        if (data.role === "admin") loadAdmin();
+      }
+    });
+  }
+
+  /* AUTH */
   function login() {
-    clearMsg();
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => showError(e.message));
+      .catch(e => msg.innerText = e.message);
   }
 
   function signup() {
-    clearMsg();
     auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => showError(e.message));
+      .catch(e => msg.innerText = e.message);
   }
 
   function logout() {
     auth.signOut();
   }
 
-  /* UI HELPERS */
+  /* CATEGORY */
+  function loadCategories() {
+    categorySelect.innerHTML = "";
+    db.collection("chantingCategories").where("active", "==", true).get()
+      .then(snap => {
+        snap.forEach(doc => {
+          const o = document.createElement("option");
+          o.value = doc.id;
+          o.innerText = doc.data().name;
+          categorySelect.appendChild(o);
+        });
+      });
+  }
+
+  function saveCategory() {
+    const catId = categorySelect.value;
+    if (!catId) {
+      catMsg.innerText = "Please select a category";
+      return;
+    }
+
+    db.collection("users").doc(auth.currentUser.uid)
+      .update({ currentCategoryId: catId })
+      .then(() => showHome(auth.currentUser.email));
+  }
+
+  function openCategory() {
+    loadCategories();
+    showCategory();
+  }
+
+  /* ADMIN */
+  function loadAdmin() {
+    showAdmin();
+    db.collection("chantingCategories").onSnapshot(snap => {
+      catList.innerHTML = "";
+      snap.forEach(doc => {
+        const d = doc.data();
+        catList.innerHTML += `<p>${d.name} (${d.active ? "Active" : "Inactive"})</p>`;
+      });
+    });
+  }
+
+  function addCategory() {
+    if (!newCatName.value) return;
+    db.collection("chantingCategories").add({
+      name: newCatName.value,
+      active: true
+    });
+    newCatName.value = "";
+  }
+
+  /* UI */
   function showAuth() {
     loadingScreen.style.display = "none";
-    homeScreen.style.display = "none";
     authScreen.style.display = "block";
+    categoryScreen.style.display = "none";
+    homeScreen.style.display = "none";
+    adminScreen.style.display = "none";
   }
 
-  function showHome(role) {
-    loadingScreen.style.display = "none";
+  function showCategory() {
     authScreen.style.display = "none";
+    categoryScreen.style.display = "block";
+    homeScreen.style.display = "none";
+    adminScreen.style.display = "none";
+  }
+
+  function showHome(email) {
+    welcomeText.innerText = "Welcome " + email;
+    authScreen.style.display = "none";
+    categoryScreen.style.display = "none";
     homeScreen.style.display = "block";
-    roleText.innerText = role === "admin"
-      ? "You are logged in as ADMIN"
-      : "You are logged in as USER";
   }
 
-  function showError(text) {
-    msg.innerText = text;
-  }
-
-  function clearMsg() {
-    msg.innerText = "";
+  function showAdmin() {
+    adminScreen.style.display = "block";
   }
 </script>
 
