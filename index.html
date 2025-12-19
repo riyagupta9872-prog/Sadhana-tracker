@@ -14,7 +14,7 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #000080;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -22,15 +22,15 @@
     .card {
       background: white;
       color: #000080;
-      padding: 30px;
+      padding: 25px;
       border-radius: 12px;
-      width: 360px;
-      text-align: center;
+      width: 420px;
     }
+    h3 { text-align:center; }
     input, select {
       width: 100%;
-      padding: 10px;
-      margin: 8px 0;
+      padding: 8px;
+      margin: 6px 0;
     }
     button {
       width: 100%;
@@ -41,205 +41,166 @@
       margin-top: 10px;
       cursor: pointer;
     }
-    .msg {
-      margin-top: 10px;
-      font-size: 14px;
-      color: red;
+    .secondary {
+      background: #f2f2f2;
+      color: #000080;
     }
-    .ok {
-      color: green;
+    .muted {
+      font-size: 13px;
+      color: #555;
+      text-align:center;
+    }
+    .danger {
+      color: red;
       font-size: 14px;
+      text-align:center;
     }
   </style>
 </head>
 
 <body>
 
-<!-- LOADING -->
-<div class="card" id="loadingScreen">
-  <p class="ok">Checking session…</p>
-</div>
+<div class="card" id="loading">Checking session…</div>
 
-<!-- AUTH -->
-<div class="card" id="authScreen" style="display:none;">
-  <h2>🙏 Sadhana Tracker</h2>
-  <input type="email" id="email" placeholder="Email" />
-  <input type="password" id="password" />
+<div class="card" id="auth" style="display:none;">
+  <h3>🙏 Sadhana Tracker</h3>
+  <input id="email" placeholder="Email" />
+  <input id="password" type="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-  <div class="msg" id="msg"></div>
+  <p id="msg" class="danger"></p>
 </div>
 
-<!-- CATEGORY (MANDATORY) -->
-<div class="card" id="categoryScreen" style="display:none;">
-  <h3>Select Chanting Category</h3>
-  <select id="categorySelect"></select>
-  <button onclick="saveCategory()">Save & Continue</button>
-  <div class="msg" id="catMsg"></div>
-</div>
+<div class="card" id="sadhana" style="display:none;">
+  <h3>Daily Sadhana</h3>
 
-<!-- HOME -->
-<div class="card" id="homeScreen" style="display:none;">
-  <h3 id="welcomeText"></h3>
-  <button onclick="openCategory()">Change Category</button>
-  <button onclick="logout()">Logout</button>
-</div>
+  <label>Date</label>
+  <select id="dateSelect"></select>
 
-<!-- ADMIN -->
-<div class="card" id="adminScreen" style="display:none;">
-  <h3>Admin – Chanting Categories</h3>
-  <input type="text" id="newCatName" placeholder="Category name (e.g. 8–12 rounds)" />
-  <button onclick="addCategory()">Add Category</button>
-  <div id="catList"></div>
+  <label>Sleep Time</label>
+  <input type="time" id="sleepTime" />
+
+  <label>Wake-up Time</label>
+  <input type="time" id="wakeTime" />
+
+  <label>Chanting Completion Time</label>
+  <input type="time" id="chantingTime" />
+
+  <label>Reading Duration (minutes)</label>
+  <input type="number" id="reading" />
+
+  <label>Hearing Hari Katha (minutes)</label>
+  <input type="number" id="hearing" />
+
+  <label>Day Sleep (minutes)</label>
+  <input type="number" id="daySleep" />
+
+  <button onclick="saveSadhana()">Save Sadhana</button>
+  <button class="secondary" onclick="logout()">Logout</button>
+
+  <p id="status" class="muted"></p>
 </div>
 
 <script>
-  /* Firebase */
-  const firebaseConfig = {
-    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-    projectId: "sadhana-tracker-b65ff",
-    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+  authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+  projectId: "sadhana-tracker-b65ff",
+  appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+};
 
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-  const ADMIN_EMAIL = "riyagupta9872@gmail.com";
-  let currentUserRole = "user";
+const ADMIN_EMAIL = "riyagupta9872@gmail.com";
+let maxBackdateDays = 2;
 
-  /* AUTH STATE */
-  auth.onAuthStateChanged(user => {
-    if (!user) {
-      showAuth();
-      return;
-    }
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    show("auth");
+    return;
+  }
 
-    const userRef = db.collection("users").doc(user.uid);
-
-    userRef.get().then(doc => {
-      if (!doc.exists) {
-        const role = user.email === ADMIN_EMAIL ? "admin" : "user";
-        userRef.set({
-          email: user.email,
-          role,
-          isActive: true
-        }).then(() => loadUser(user.uid));
-      } else {
-        loadUser(user.uid);
-      }
-    });
-  });
-
-  function loadUser(uid) {
-    db.collection("users").doc(uid).get().then(doc => {
-      const data = doc.data();
-      currentUserRole = data.role;
-
-      if (!data.currentCategoryId) {
-        loadCategories();
-        showCategory();
-      } else {
-        showHome(data.email);
-        if (data.role === "admin") loadAdmin();
-      }
+  const userRef = db.collection("users").doc(user.uid);
+  const doc = await userRef.get();
+  if (!doc.exists) {
+    await userRef.set({
+      email: user.email,
+      role: user.email === ADMIN_EMAIL ? "admin" : "user"
     });
   }
 
-  /* AUTH */
-  function login() {
-    auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => msg.innerText = e.message);
+  await loadSettings();
+  setupDateOptions();
+  show("sadhana");
+});
+
+async function loadSettings() {
+  const ref = db.collection("settings").doc("appConfig");
+  const doc = await ref.get();
+  if (!doc.exists) {
+    await ref.set({ backdateEnabled: true, maxBackdateDays: 2 });
+    maxBackdateDays = 2;
+  } else {
+    maxBackdateDays = doc.data().maxBackdateDays;
   }
+}
 
-  function signup() {
-    auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => msg.innerText = e.message);
+function setupDateOptions() {
+  const sel = document.getElementById("dateSelect");
+  sel.innerHTML = "";
+  const today = new Date();
+
+  for (let i = 0; i <= maxBackdateDays; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.text = key;
+    sel.appendChild(opt);
   }
+}
 
-  function logout() {
-    auth.signOut();
-  }
+async function saveSadhana() {
+  const uid = auth.currentUser.uid;
+  const date = dateSelect.value;
 
-  /* CATEGORY */
-  function loadCategories() {
-    categorySelect.innerHTML = "";
-    db.collection("chantingCategories").where("active", "==", true).get()
-      .then(snap => {
-        snap.forEach(doc => {
-          const o = document.createElement("option");
-          o.value = doc.id;
-          o.innerText = doc.data().name;
-          categorySelect.appendChild(o);
-        });
-      });
-  }
-
-  function saveCategory() {
-    const catId = categorySelect.value;
-    if (!catId) {
-      catMsg.innerText = "Please select a category";
-      return;
-    }
-
-    db.collection("users").doc(auth.currentUser.uid)
-      .update({ currentCategoryId: catId })
-      .then(() => showHome(auth.currentUser.email));
-  }
-
-  function openCategory() {
-    loadCategories();
-    showCategory();
-  }
-
-  /* ADMIN */
-  function loadAdmin() {
-    showAdmin();
-    db.collection("chantingCategories").onSnapshot(snap => {
-      catList.innerHTML = "";
-      snap.forEach(doc => {
-        const d = doc.data();
-        catList.innerHTML += `<p>${d.name} (${d.active ? "Active" : "Inactive"})</p>`;
-      });
+  await db.collection("users")
+    .doc(uid)
+    .collection("sadhana")
+    .doc(date)
+    .set({
+      sleepTime: sleepTime.value,
+      wakeTime: wakeTime.value,
+      chantingTime: chantingTime.value,
+      reading: reading.value,
+      hearing: hearing.value,
+      daySleep: daySleep.value,
+      status: "filled",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  }
 
-  function addCategory() {
-    if (!newCatName.value) return;
-    db.collection("chantingCategories").add({
-      name: newCatName.value,
-      active: true
-    });
-    newCatName.value = "";
-  }
+  status.innerText = "Sadhana saved 🙏";
+}
 
-  /* UI */
-  function showAuth() {
-    loadingScreen.style.display = "none";
-    authScreen.style.display = "block";
-    categoryScreen.style.display = "none";
-    homeScreen.style.display = "none";
-    adminScreen.style.display = "none";
-  }
+function login() {
+  auth.signInWithEmailAndPassword(email.value, password.value)
+    .catch(e => msg.innerText = e.message);
+}
+function signup() {
+  auth.createUserWithEmailAndPassword(email.value, password.value)
+    .catch(e => msg.innerText = e.message);
+}
+function logout() {
+  auth.signOut();
+}
 
-  function showCategory() {
-    authScreen.style.display = "none";
-    categoryScreen.style.display = "block";
-    homeScreen.style.display = "none";
-    adminScreen.style.display = "none";
-  }
-
-  function showHome(email) {
-    welcomeText.innerText = "Welcome " + email;
-    authScreen.style.display = "none";
-    categoryScreen.style.display = "none";
-    homeScreen.style.display = "block";
-  }
-
-  function showAdmin() {
-    adminScreen.style.display = "block";
-  }
+function show(id) {
+  loading.style.display = auth.style.display = sadhana.style.display = "none";
+  document.getElementById(id).style.display = "block";
+}
 </script>
 
 </body>
