@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker – Auth</title>
+  <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase Auth -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     body {
@@ -23,7 +24,7 @@
       color: #000080;
       padding: 30px;
       border-radius: 12px;
-      width: 320px;
+      width: 340px;
       text-align: center;
     }
     input {
@@ -45,43 +46,40 @@
       font-size: 14px;
       color: red;
     }
-    .loading {
-      color: #000080;
-      font-size: 16px;
-      font-weight: bold;
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: green;
     }
   </style>
 </head>
 
 <body>
 
-<!-- LOADING SCREEN -->
+<!-- LOADING -->
 <div class="card" id="loadingScreen">
-  <p class="loading">Checking session…</p>
+  <p class="status">Checking session…</p>
 </div>
 
-<!-- LOGIN / SIGNUP -->
-<div class="card" id="loginScreen" style="display:none;">
+<!-- AUTH -->
+<div class="card" id="authScreen" style="display:none;">
   <h2>🙏 Sadhana Tracker</h2>
-
   <input type="email" id="email" placeholder="Email" />
   <input type="password" id="password" placeholder="Password" />
-
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-
   <div class="msg" id="msg"></div>
 </div>
 
 <!-- HOME -->
 <div class="card" id="homeScreen" style="display:none;">
-  <h2>✅ Logged In</h2>
-  <p>You are successfully logged in.</p>
+  <h2>✅ Access Granted</h2>
+  <p id="roleText"></p>
   <button onclick="logout()">Logout</button>
 </div>
 
 <script>
-  // Firebase config (YOUR PROJECT)
+  /* 🔧 Firebase Config */
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -91,49 +89,81 @@
 
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
+  const db = firebase.firestore();
 
-  // 🔑 AUTH STATE HANDLER (CLEAN & PROFESSIONAL)
+  const ADMIN_EMAIL = "riyagupta9872@gmail.com";
+
+  /* 🔑 AUTH STATE */
   auth.onAuthStateChanged(user => {
-    if (user) {
-      showHome();
-    } else {
-      showLogin();
+    if (!user) {
+      showAuth();
+      return;
     }
+
+    const userRef = db.collection("users").doc(user.uid);
+
+    userRef.get().then(doc => {
+      if (!doc.exists) {
+        // First time user
+        const role = user.email === ADMIN_EMAIL ? "admin" : "user";
+
+        userRef.set({
+          email: user.email,
+          role: role,
+          isActive: true,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+          showHome(role);
+        });
+
+      } else {
+        const data = doc.data();
+
+        if (!data.isActive) {
+          auth.signOut();
+          showError("Your account is disabled. Contact admin.");
+          return;
+        }
+
+        showHome(data.role);
+      }
+    });
   });
 
+  /* ACTIONS */
   function login() {
     clearMsg();
-    auth.signInWithEmailAndPassword(
-      email.value,
-      password.value
-    ).catch(e => showMsg(e.message));
+    auth.signInWithEmailAndPassword(email.value, password.value)
+      .catch(e => showError(e.message));
   }
 
   function signup() {
     clearMsg();
-    auth.createUserWithEmailAndPassword(
-      email.value,
-      password.value
-    ).catch(e => showMsg(e.message));
+    auth.createUserWithEmailAndPassword(email.value, password.value)
+      .catch(e => showError(e.message));
   }
 
   function logout() {
     auth.signOut();
   }
 
-  function showLogin() {
+  /* UI HELPERS */
+  function showAuth() {
     loadingScreen.style.display = "none";
     homeScreen.style.display = "none";
-    loginScreen.style.display = "block";
+    authScreen.style.display = "block";
   }
 
-  function showHome() {
+  function showHome(role) {
     loadingScreen.style.display = "none";
-    loginScreen.style.display = "none";
+    authScreen.style.display = "none";
     homeScreen.style.display = "block";
+    roleText.innerText = role === "admin"
+      ? "You are logged in as ADMIN"
+      : "You are logged in as USER";
   }
 
-  function showMsg(text) {
+  function showError(text) {
     msg.innerText = text;
   }
 
