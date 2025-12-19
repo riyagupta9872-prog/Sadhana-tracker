@@ -7,6 +7,7 @@
   <!-- Firebase CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     body {
@@ -27,7 +28,7 @@
       width: 320px;
       text-align: center;
     }
-    input {
+    input, select {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
@@ -42,9 +43,8 @@
       margin-top: 10px;
     }
     .link {
-      color: #000080;
-      cursor: pointer;
       font-size: 14px;
+      cursor: pointer;
       margin-top: 10px;
       display: block;
     }
@@ -57,87 +57,153 @@
 
 <body>
 
-  <!-- LOGIN / SIGNUP SCREEN -->
-  <div class="card" id="authScreen">
-    <h2>🙏 Sadhana Tracker</h2>
+<!-- AUTH SCREEN -->
+<div class="card" id="authScreen">
+  <h2>🙏 Sadhana Tracker</h2>
 
-    <input type="email" id="email" placeholder="Email" />
-    <input type="password" id="password" placeholder="Password" />
+  <input type="email" id="email" placeholder="Email" />
+  <input type="password" id="password" placeholder="Password" />
 
-    <button onclick="login()">Login</button>
-    <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
+  <button onclick="signup()">Sign Up</button>
 
-    <span class="link" onclick="clearMsg()">Clear message</span>
-    <div class="msg" id="msg"></div>
-  </div>
+  <div class="msg" id="msg"></div>
+</div>
 
-  <!-- WELCOME SCREEN -->
-  <div class="card" id="welcomeScreen" style="display:none;">
-    <h2>🙏 Welcome</h2>
-    <p>You are logged in successfully</p>
-    <p><strong>Sadhana Tracker</strong></p>
-    <button onclick="logout()">Logout</button>
-  </div>
+<!-- CATEGORY SCREEN -->
+<div class="card" id="categoryScreen" style="display:none;">
+  <h3>Select Chanting Category</h3>
 
-  <script>
-    // Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-      authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-      projectId: "sadhana-tracker-b65ff",
-      appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
-    };
+  <select id="categorySelect">
+    <option value="">-- Select Category --</option>
+  </select>
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
+  <button onclick="saveCategory()">Save Category</button>
+  <div class="msg" id="catMsg"></div>
+</div>
 
-    // LOGIN
-    function login() {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+<!-- WELCOME SCREEN -->
+<div class="card" id="welcomeScreen" style="display:none;">
+  <h2>🙏 Welcome</h2>
+  <p>You are logged in successfully</p>
+  <p><strong>Sadhana Tracker</strong></p>
+  <button onclick="logout()">Logout</button>
+</div>
 
-      auth.signInWithEmailAndPassword(email, password)
-        .then(() => {
-          showWelcome();
-        })
-        .catch(error => {
-          document.getElementById("msg").innerText = error.message;
+<script>
+  // 🔥 Firebase Config (YOURS)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+    projectId: "sadhana-tracker-b65ff",
+    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // LOGIN
+  function login() {
+    const email = emailValue();
+    const password = passwordValue();
+
+    auth.signInWithEmailAndPassword(email, password)
+      .then(() => {
+        showWelcome();
+      })
+      .catch(err => showMsg(err.message));
+  }
+
+  // SIGNUP
+  function signup() {
+    const email = emailValue();
+    const password = passwordValue();
+
+    auth.createUserWithEmailAndPassword(email, password)
+      .then(() => {
+        showCategory();
+        loadCategories();
+      })
+      .catch(err => showMsg(err.message));
+  }
+
+  // LOAD CATEGORIES
+  function loadCategories() {
+    const select = document.getElementById("categorySelect");
+    select.innerHTML = '<option value="">-- Select Category --</option>';
+
+    db.collection("chantingCategories")
+      .where("active", "==", true)
+      .get()
+      .then(snapshot => {
+        snapshot.forEach(doc => {
+          const opt = document.createElement("option");
+          opt.value = doc.id;
+          opt.innerText = doc.data().name;
+          select.appendChild(opt);
         });
-    }
-
-    // SIGNUP
-    function signup() {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
-
-      auth.createUserWithEmailAndPassword(email, password)
-        .then(() => {
-          showWelcome();
-        })
-        .catch(error => {
-          document.getElementById("msg").innerText = error.message;
-        });
-    }
-
-    // SHOW WELCOME
-    function showWelcome() {
-      document.getElementById("authScreen").style.display = "none";
-      document.getElementById("welcomeScreen").style.display = "block";
-    }
-
-    // LOGOUT
-    function logout() {
-      auth.signOut().then(() => {
-        document.getElementById("welcomeScreen").style.display = "none";
-        document.getElementById("authScreen").style.display = "block";
       });
+  }
+
+  // SAVE CATEGORY
+  function saveCategory() {
+    const categoryId = document.getElementById("categorySelect").value;
+    const user = auth.currentUser;
+
+    if (!categoryId) {
+      document.getElementById("catMsg").innerText = "Please select a category";
+      return;
     }
 
-    // CLEAR MESSAGE
-    function clearMsg() {
-      document.getElementById("msg").innerText = "";
-    }
-  </script>
+    db.collection("users").doc(user.uid).set({
+      email: user.email,
+      role: "user",
+      currentCategoryId: categoryId,
+      isActive: true
+    }).then(() => {
+      showWelcome();
+    });
+  }
+
+  // LOGOUT
+  function logout() {
+    auth.signOut().then(() => {
+      showAuth();
+    });
+  }
+
+  // HELPERS
+  function emailValue() {
+    return document.getElementById("email").value;
+  }
+
+  function passwordValue() {
+    return document.getElementById("password").value;
+  }
+
+  function showMsg(msg) {
+    document.getElementById("msg").innerText = msg;
+  }
+
+  function showAuth() {
+    authScreen.style.display = "block";
+    categoryScreen.style.display = "none";
+    welcomeScreen.style.display = "none";
+  }
+
+  function showCategory() {
+    authScreen.style.display = "none";
+    categoryScreen.style.display = "block";
+    welcomeScreen.style.display = "none";
+  }
+
+  function showWelcome() {
+    authScreen.style.display = "none";
+    categoryScreen.style.display = "none";
+    welcomeScreen.style.display = "block";
+  }
+</script>
 
 </body>
 </html>
