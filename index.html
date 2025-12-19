@@ -4,7 +4,7 @@
   <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase CDN -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -14,7 +14,6 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #000080;
-      color: white;
       height: 100vh;
       display: flex;
       justify-content: center;
@@ -39,13 +38,16 @@
       background: #000080;
       color: white;
       border: none;
-      cursor: pointer;
       margin-top: 10px;
     }
     .msg {
       margin-top: 10px;
       font-size: 14px;
       color: red;
+    }
+    .loading {
+      color: green;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -59,13 +61,16 @@
   <input type="password" id="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
+  <div class="loading" id="loading"></div>
   <div class="msg" id="msg"></div>
 </div>
 
 <!-- CATEGORY -->
 <div class="card" id="categoryScreen" style="display:none;">
   <h3>Select Chanting Category</h3>
-  <select id="categorySelect"></select>
+  <select id="categorySelect">
+    <option value="">-- Select --</option>
+  </select>
   <button onclick="saveCategory()">Save Category</button>
   <div class="msg" id="catMsg"></div>
 </div>
@@ -90,8 +95,10 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // 🔥 AUTO LOGIN HANDLER (FIXED)
+  // AUTH STATE LISTENER
   auth.onAuthStateChanged(user => {
+    document.getElementById("loading").innerText = "";
+
     if (!user) {
       showAuth();
       return;
@@ -109,38 +116,49 @@
   });
 
   function login() {
+    clearMsg();
+    loading.innerText = "Checking login...";
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => msg.innerText = e.message);
+      .catch(e => {
+        loading.innerText = "";
+        msg.innerText = e.message;
+      });
   }
 
   function signup() {
+    clearMsg();
+    loading.innerText = "Creating account...";
     auth.createUserWithEmailAndPassword(email.value, password.value)
       .then(() => {
         showCategory();
         loadCategories();
       })
-      .catch(e => msg.innerText = e.message);
+      .catch(e => {
+        loading.innerText = "";
+        msg.innerText = e.message;
+      });
   }
 
   function loadCategories() {
-    const sel = document.getElementById("categorySelect");
-    sel.innerHTML = "";
+    const sel = categorySelect;
+    sel.innerHTML = '<option value="">-- Select --</option>';
+
     db.collection("chantingCategories")
       .where("active", "==", true)
       .get()
       .then(snap => {
         snap.forEach(doc => {
-          const opt = document.createElement("option");
-          opt.value = doc.id;
-          opt.text = doc.data().name;
-          sel.appendChild(opt);
+          const o = document.createElement("option");
+          o.value = doc.id;
+          o.innerText = doc.data().name;
+          sel.appendChild(o);
         });
       });
   }
 
   function saveCategory() {
-    const user = auth.currentUser;
     const cat = categorySelect.value;
+    const user = auth.currentUser;
 
     if (!cat) {
       catMsg.innerText = "Please select a category";
@@ -157,6 +175,11 @@
 
   function logout() {
     auth.signOut();
+  }
+
+  function clearMsg() {
+    msg.innerText = "";
+    catMsg.innerText = "";
   }
 
   function showAuth() {
