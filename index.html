@@ -1,80 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
   <title>Sadhana Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase v8 SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <!-- Firebase CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
   <style>
     body {
-      background-color: #0a1a6a;
+      margin: 0;
       font-family: Arial, sans-serif;
+      background: #000080;
       color: white;
+      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      margin: 0;
     }
-
-    .box {
+    .card {
       background: white;
-      color: black;
-      padding: 20px;
-      border-radius: 8px;
-      width: 300px;
+      color: #000080;
+      padding: 30px;
+      border-radius: 12px;
+      width: 320px;
       text-align: center;
     }
-
     input {
       width: 100%;
-      padding: 8px;
-      margin: 6px 0;
+      padding: 10px;
+      margin: 8px 0;
     }
-
     button {
       width: 100%;
       padding: 10px;
-      background: #0a1a6a;
+      background: #000080;
       color: white;
       border: none;
       cursor: pointer;
       margin-top: 10px;
     }
-
+    .link {
+      color: #000080;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      display: block;
+    }
     .msg {
       margin-top: 10px;
-      color: red;
+      font-size: 14px;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- LOGIN AREA -->
-  <div class="box" id="loginBox">
+  <!-- LOGIN / SIGNUP SCREEN -->
+  <div class="card" id="authScreen">
     <h2>🙏 Sadhana Tracker</h2>
 
-    <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Password">
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
 
     <button onclick="login()">Login</button>
+    <button onclick="signup()">Sign Up</button>
 
+    <span class="link" onclick="clearMsg()">Clear message</span>
     <div class="msg" id="msg"></div>
   </div>
 
-  <!-- APP AREA (HIDDEN INITIALLY) -->
-  <div class="box" id="appArea" style="display:none;">
-    <h2>🙏 Welcome to Sadhana Tracker</h2>
-    <p>Phase 1 completed successfully.</p>
+  <!-- WELCOME SCREEN -->
+  <div class="card" id="welcomeScreen" style="display:none;">
+    <h2>🙏 Welcome</h2>
+    <p>You are logged in successfully</p>
+    <p><strong>Sadhana Tracker</strong></p>
+    <button onclick="logout()">Logout</button>
   </div>
 
   <script>
-    // Firebase configuration
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
       authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -82,33 +88,54 @@
       appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
-
     const auth = firebase.auth();
-    const db = firebase.firestore();
 
+    // LOGIN
     function login() {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
 
       auth.signInWithEmailAndPassword(email, password)
         .then(() => {
-          const user = auth.currentUser;
-
-          // Create user document (one-time, safe with merge)
-          db.collection("users").doc(user.uid).set({
-            email: user.email,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-
-          // Move to app area
-          document.getElementById("loginBox").style.display = "none";
-          document.getElementById("appArea").style.display = "block";
+          showWelcome();
         })
         .catch(error => {
           document.getElementById("msg").innerText = error.message;
         });
+    }
+
+    // SIGNUP
+    function signup() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(() => {
+          showWelcome();
+        })
+        .catch(error => {
+          document.getElementById("msg").innerText = error.message;
+        });
+    }
+
+    // SHOW WELCOME
+    function showWelcome() {
+      document.getElementById("authScreen").style.display = "none";
+      document.getElementById("welcomeScreen").style.display = "block";
+    }
+
+    // LOGOUT
+    function logout() {
+      auth.signOut().then(() => {
+        document.getElementById("welcomeScreen").style.display = "none";
+        document.getElementById("authScreen").style.display = "block";
+      });
+    }
+
+    // CLEAR MESSAGE
+    function clearMsg() {
+      document.getElementById("msg").innerText = "";
     }
   </script>
 
