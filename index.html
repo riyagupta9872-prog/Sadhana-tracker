@@ -4,7 +4,6 @@
   <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
@@ -25,32 +24,30 @@
       border-radius: 12px;
       width: 420px;
     }
-    h3 {
-      text-align: center;
-    }
-    input {
+    h3 { text-align: center; }
+    label { font-size: 14px; display: block; margin-top: 10px; }
+    input, select {
       width: 100%;
       padding: 8px;
-      margin: 6px 0;
+      margin-top: 6px;
     }
     button {
       width: 100%;
       padding: 10px;
-      margin-top: 10px;
+      margin-top: 12px;
       background: #000080;
       color: white;
       border: none;
       cursor: pointer;
     }
+    .secondary {
+      background: #f2f2f2;
+      color: #000080;
+    }
     .msg {
       color: red;
       text-align: center;
       font-size: 14px;
-    }
-    label {
-      font-size: 14px;
-      margin-top: 8px;
-      display: block;
     }
   </style>
 </head>
@@ -70,6 +67,22 @@
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
   <p id="msg" class="msg"></p>
+</div>
+
+<!-- CHANTING CATEGORY -->
+<div class="card" id="category" style="display:none;">
+  <h3>Select Chanting Category</h3>
+
+  <label>How many rounds do you chant?</label>
+  <select id="categorySelect">
+    <option value="">-- Select --</option>
+    <option value="0-4">0 – 4 rounds</option>
+    <option value="5-9">5 – 9 rounds</option>
+    <option value="10-16">10 – 16 rounds</option>
+  </select>
+
+  <button onclick="saveCategory()">Continue</button>
+  <p id="catMsg" class="msg"></p>
 </div>
 
 <!-- SADHANA FORM -->
@@ -94,6 +107,7 @@
   <label>Day Sleep (minutes)</label>
   <input type="number" />
 
+  <button class="secondary" onclick="changeCategory()">Change Chanting Category</button>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -110,14 +124,22 @@
 
   const loadingEl = document.getElementById("loading");
   const authEl = document.getElementById("auth");
+  const categoryEl = document.getElementById("category");
   const sadhanaEl = document.getElementById("sadhana");
   const msgEl = document.getElementById("msg");
+  const catMsgEl = document.getElementById("catMsg");
 
   auth.onAuthStateChanged(user => {
-    if (user) {
-      show("sadhana");
-    } else {
+    if (!user) {
       show("auth");
+      return;
+    }
+
+    const savedCategory = localStorage.getItem("chantingCategory");
+    if (!savedCategory) {
+      show("category");
+    } else {
+      show("sadhana");
     }
   });
 
@@ -131,6 +153,21 @@
       .catch(e => msgEl.innerText = e.message);
   }
 
+  function saveCategory() {
+    const value = categorySelect.value;
+    if (!value) {
+      catMsgEl.innerText = "Please select a category";
+      return;
+    }
+    localStorage.setItem("chantingCategory", value);
+    show("sadhana");
+  }
+
+  function changeCategory() {
+    localStorage.removeItem("chantingCategory");
+    show("category");
+  }
+
   function logout() {
     auth.signOut();
   }
@@ -138,9 +175,11 @@
   function show(screen) {
     loadingEl.style.display = "none";
     authEl.style.display = "none";
+    categoryEl.style.display = "none";
     sadhanaEl.style.display = "none";
 
     if (screen === "auth") authEl.style.display = "block";
+    if (screen === "category") categoryEl.style.display = "block";
     if (screen === "sadhana") sadhanaEl.style.display = "block";
   }
 </script>
