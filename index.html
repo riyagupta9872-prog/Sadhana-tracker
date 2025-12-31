@@ -21,95 +21,113 @@
     .card {
       background: white;
       color: #000080;
-      padding: 25px;
+      padding: 20px;
       border-radius: 12px;
-      width: 420px;
+      width: 95%;
+      max-width: 900px;
     }
-    h3 { text-align: center; }
-    label { font-size: 14px; display: block; margin-top: 10px; }
+    h3 { text-align: center; margin-top: 0; }
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tab.active {
+      border-bottom: 3px solid #000080;
+      font-weight: bold;
+    }
+    label { font-size: 13px; display: block; margin-top: 8px; }
     input, select {
       width: 100%;
-      padding: 8px;
-      margin-top: 6px;
+      padding: 6px;
+      margin-top: 4px;
     }
     button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 12px;
+      padding: 8px 12px;
+      margin-top: 10px;
       background: #000080;
       color: white;
       border: none;
       cursor: pointer;
     }
-    .msg { text-align: center; font-size: 14px; margin-top: 10px; }
-    .err { color: red; }
-    .success { color: green; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: center;
+    }
+    th { background: #f0f0f0; }
+    .neg { color: #b00000; }
+    .week-header {
+      background: #f7f7f7;
+      padding: 8px;
+      margin-top: 10px;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .danger {
+      color: #b00000;
+      font-weight: bold;
+    }
   </style>
 </head>
 
 <body>
 
-<div class="card" id="loading">Checking session…</div>
-
-<div class="card" id="auth" style="display:none;">
+<div class="card">
   <h3>Sadhana Tracker</h3>
-  <input id="email" placeholder="Email" />
-  <input id="password" type="password" />
-  <button onclick="login()">Login</button>
-  <button onclick="signup()">Sign Up</button>
-  <p id="authMsg" class="msg err"></p>
-</div>
 
-<div class="card" id="profile" style="display:none;">
-  <h3>Profile Setup</h3>
-  <label>Full Name</label>
-  <input id="displayName" />
-  <label>Devotee ID</label>
-  <input id="devoteeId" />
-  <button onclick="saveProfile()">Continue</button>
-  <p id="profileMsg" class="msg err"></p>
-</div>
+  <div class="tabs">
+    <div class="tab active" id="tabSadhana" onclick="showTab('sadhana')">Sadhana</div>
+    <div class="tab" id="tabScores" onclick="showTab('scores')">Scores</div>
+  </div>
 
-<div class="card" id="category" style="display:none;">
-  <h3>Select Chanting Category</h3>
-  <select id="categorySelect">
-    <option value="">-- Select --</option>
-    <option value="0-4">0 – 4 rounds</option>
-    <option value="5-9">5 – 9 rounds</option>
-    <option value="10-16">10 – 16 rounds</option>
-  </select>
-  <button onclick="saveCategory()">Continue</button>
-  <p id="catMsg" class="msg err"></p>
-</div>
+  <!-- SADHANA TAB -->
+  <div id="sadhanaTab">
+    <label>Date</label>
+    <select id="dateSelect"></select>
 
-<div class="card" id="sadhana" style="display:none;">
-  <h3>Daily Sadhana</h3>
+    <label>Sleep Time</label>
+    <input type="time" id="sleepTime">
 
-  <label>Date</label>
-  <select id="dateSelect"></select>
+    <label>Wake-up Time</label>
+    <input type="time" id="wakeTime">
 
-  <label>Sleep Time</label>
-  <input type="time" id="sleepTime" />
+    <label>Chanting Completion</label>
+    <input type="time" id="chantingTime">
 
-  <label>Wake-up Time</label>
-  <input type="time" id="wakeTime" />
+    <label>Reading (minutes)</label>
+    <input type="number" id="reading">
 
-  <label>Chanting Completion Time</label>
-  <input type="time" id="chantingTime" />
+    <label>Hearing (minutes)</label>
+    <input type="number" id="hearing">
 
-  <label>Reading (minutes)</label>
-  <input type="number" id="reading" />
+    <label>Day Sleep (minutes)</label>
+    <input type="number" id="daySleep">
 
-  <label>Hearing (minutes)</label>
-  <input type="number" id="hearing" />
+    <button onclick="submitSadhana()">Submit Sadhana</button>
+    <button onclick="logout()">Logout</button>
+  </div>
 
-  <label>Day Sleep (minutes)</label>
-  <input type="number" id="daySleep" />
+  <!-- SCORES TAB -->
+  <div id="scoresTab" style="display:none">
+    <h4>Current Week</h4>
+    <div id="currentWeek"></div>
 
-  <button onclick="submitSadhana()">Submit Sadhana</button>
-  <button onclick="logout()">Logout</button>
-
-  <p id="successMsg" class="msg success"></p>
+    <h4 style="margin-top:20px">Previous Weeks</h4>
+    <div id="previousWeeks"></div>
+  </div>
 </div>
 
 <script>
@@ -123,77 +141,14 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
-
-  const screens = ["loading","auth","profile","category","sadhana"];
-  const show = id => screens.forEach(s =>
-    document.getElementById(s).style.display = s === id ? "block" : "none"
-  );
-
   let uid = null;
 
-  function clearSadhanaForm() {
-    sleepTime.value = "";
-    wakeTime.value = "";
-    chantingTime.value = "";
-    reading.value = "";
-    hearing.value = "";
-    daySleep.value = "";
-    successMsg.innerText = "";
-  }
-
-  auth.onAuthStateChanged(async user => {
-    clearSadhanaForm();
-
-    if (!user) { show("auth"); return; }
-
-    uid = user.uid;
-    setupDates();
-
-    const ref = db.collection("users").doc(uid);
-    const snap = await ref.get();
-    const data = snap.exists ? snap.data() : {};
-
-    if (!data.displayName || !data.devoteeId) {
-      show("profile");
-    } else if (!data.chantingCategory) {
-      show("category");
-    } else {
-      show("sadhana");
-    }
-  });
-
-  function login() {
-    auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => authMsg.innerText = e.message);
-  }
-  function signup() {
-    auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => authMsg.innerText = e.message);
-  }
-
-  async function saveProfile() {
-    if (!displayName.value || !devoteeId.value) {
-      profileMsg.innerText = "All fields required";
-      return;
-    }
-    await db.collection("users").doc(uid).set({
-      displayName: displayName.value,
-      devoteeId: devoteeId.value,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    show("category");
-  }
-
-  async function saveCategory() {
-    if (!categorySelect.value) {
-      catMsg.innerText = "Select category";
-      return;
-    }
-    await db.collection("users").doc(uid).set({
-      chantingCategory: categorySelect.value,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    show("sadhana");
+  function showTab(tab) {
+    document.getElementById("sadhanaTab").style.display = tab === "sadhana" ? "block" : "none";
+    document.getElementById("scoresTab").style.display = tab === "scores" ? "block" : "none";
+    document.getElementById("tabSadhana").classList.toggle("active", tab === "sadhana");
+    document.getElementById("tabScores").classList.toggle("active", tab === "scores");
+    if (tab === "scores") loadScores();
   }
 
   function setupDates() {
@@ -209,42 +164,100 @@
     }
   }
 
-  async function preloadSadhana() {
-    clearSadhanaForm();
-    const date = dateSelect.value;
-    const ref = db.collection("users").doc(uid)
-      .collection("sadhana").doc(date);
-    const snap = await ref.get();
-    if (!snap.exists) return;
-    const d = snap.data();
-    sleepTime.value = d.sleepTime || "";
-    wakeTime.value = d.wakeTime || "";
-    chantingTime.value = d.chantingTime || "";
-    reading.value = d.reading || "";
-    hearing.value = d.hearing || "";
-    daySleep.value = d.daySleep || "";
-  }
-
-  dateSelect.addEventListener("change", preloadSadhana);
+  auth.onAuthStateChanged(user => {
+    if (!user) return;
+    uid = user.uid;
+    setupDates();
+  });
 
   async function submitSadhana() {
     const date = dateSelect.value;
     await db.collection("users").doc(uid)
       .collection("sadhana").doc(date).set({
-        date,
         sleepTime: sleepTime.value,
         wakeTime: wakeTime.value,
         chantingTime: chantingTime.value,
         reading: reading.value,
         hearing: hearing.value,
         daySleep: daySleep.value,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    successMsg.innerText = "Sadhana submitted 🙏";
+        date
+      }, { merge:true });
+    alert("Saved");
   }
 
   function logout() { auth.signOut(); }
+
+  // ---------- SCORES ----------
+  async function loadScores() {
+    const snap = await db.collection("users").doc(uid).collection("sadhana").get();
+    const data = {};
+    snap.forEach(d => data[d.id] = d.data());
+
+    const weeks = groupByWeek(data);
+    renderCurrentWeek(weeks.current);
+    renderPreviousWeeks(weeks.previous);
+  }
+
+  function groupByWeek(data) {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start); end.setDate(start.getDate()+6);
+
+    const current = [];
+    const previous = {};
+
+    for (const d in data) {
+      const dt = new Date(d);
+      if (dt >= start && dt <= end) current.push({date:d, ...data[d]});
+      else {
+        const key = weekRange(dt);
+        previous[key] = previous[key] || [];
+        previous[key].push({date:d, ...data[d]});
+      }
+    }
+    return { current, previous };
+  }
+
+  function weekRange(d) {
+    const s = new Date(d); s.setDate(d.getDate()-d.getDay());
+    const e = new Date(s); e.setDate(s.getDate()+6);
+    return s.toISOString().slice(0,10)+" → "+e.toISOString().slice(0,10);
+  }
+
+  function renderCurrentWeek(data) {
+    currentWeek.innerHTML = renderWeekTable(data);
+  }
+
+  function renderPreviousWeeks(weeks) {
+    previousWeeks.innerHTML = "";
+    Object.keys(weeks).forEach(k => {
+      const div = document.createElement("div");
+      div.className="week-header";
+      div.innerText = k;
+      div.onclick = () => {
+        div.innerHTML = "<b>"+k+"</b>"+renderWeekTable(weeks[k]);
+      };
+      previousWeeks.appendChild(div);
+    });
+  }
+
+  function renderWeekTable(rows) {
+    let html = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>DaySleep</th></tr>";
+    rows.forEach(r=>{
+      html+=`<tr>
+        <td>${r.date}</td>
+        <td>${r.sleepTime||"NR"}</td>
+        <td>${r.wakeTime||"NR"}</td>
+        <td>${r.chantingTime||"NR"}</td>
+        <td>${r.reading||"NR"}</td>
+        <td>${r.hearing||"NR"}</td>
+        <td>${r.daySleep||"NR"}</td>
+      </tr>`;
+    });
+    html+="</table>";
+    return html;
+  }
 </script>
 
 </body>
