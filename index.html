@@ -131,8 +131,21 @@
 
   let uid = null;
 
+  function clearSadhanaForm() {
+    sleepTime.value = "";
+    wakeTime.value = "";
+    chantingTime.value = "";
+    reading.value = "";
+    hearing.value = "";
+    daySleep.value = "";
+    successMsg.innerText = "";
+  }
+
   auth.onAuthStateChanged(async user => {
+    clearSadhanaForm();
+
     if (!user) { show("auth"); return; }
+
     uid = user.uid;
     setupDates();
 
@@ -146,7 +159,6 @@
       show("category");
     } else {
       show("sadhana");
-      preloadSadhana();
     }
   });
 
@@ -198,6 +210,7 @@
   }
 
   async function preloadSadhana() {
+    clearSadhanaForm();
     const date = dateSelect.value;
     const ref = db.collection("users").doc(uid)
       .collection("sadhana").doc(date);
