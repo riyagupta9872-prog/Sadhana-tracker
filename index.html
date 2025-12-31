@@ -129,13 +129,18 @@
   const msgEl = document.getElementById("msg");
   const catMsgEl = document.getElementById("catMsg");
 
+  let currentUserId = null;
+
   auth.onAuthStateChanged(user => {
     if (!user) {
       show("auth");
       return;
     }
 
-    const savedCategory = localStorage.getItem("chantingCategory");
+    currentUserId = user.uid;
+    const key = "chantingCategory_" + currentUserId;
+    const savedCategory = localStorage.getItem(key);
+
     if (!savedCategory) {
       show("category");
     } else {
@@ -159,12 +164,14 @@
       catMsgEl.innerText = "Please select a category";
       return;
     }
-    localStorage.setItem("chantingCategory", value);
+    const key = "chantingCategory_" + currentUserId;
+    localStorage.setItem(key, value);
     show("sadhana");
   }
 
   function changeCategory() {
-    localStorage.removeItem("chantingCategory");
+    const key = "chantingCategory_" + currentUserId;
+    localStorage.removeItem(key);
     show("category");
   }
 
