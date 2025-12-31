@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker – Stability Test</title>
+  <title>Sadhana Tracker – Fixed</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -25,7 +25,7 @@
       width: 400px;
     }
     h3 { text-align: center; }
-    input, select {
+    input {
       width: 100%;
       padding: 8px;
       margin: 6px 0;
@@ -48,7 +48,7 @@
 </div>
 
 <div class="card" id="auth" style="display:none;">
-  <h3>🙏 Sadhana Tracker</h3>
+  <h3>Sadhana Tracker</h3>
   <input id="email" placeholder="Email" />
   <input id="password" type="password" placeholder="Password" />
   <button onclick="login()">Login</button>
@@ -58,25 +58,7 @@
 
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
-
-  <label>Sleep Time</label>
-  <input type="time" />
-
-  <label>Wake Time</label>
-  <input type="time" />
-
-  <label>Chanting Completion Time</label>
-  <input type="time" />
-
-  <label>Reading (minutes)</label>
-  <input type="number" />
-
-  <label>Hearing (minutes)</label>
-  <input type="number" />
-
-  <label>Day Sleep (minutes)</label>
-  <input type="number" />
-
+  <p>You are logged in ✅</p>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -91,6 +73,11 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
 
+  const loadingEl = document.getElementById("loading");
+  const authEl = document.getElementById("auth");
+  const sadhanaEl = document.getElementById("sadhana");
+  const msgEl = document.getElementById("msg");
+
   auth.onAuthStateChanged(user => {
     if (user) {
       show("sadhana");
@@ -101,21 +88,25 @@
 
   function login() {
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => msg.innerText = e.message);
+      .catch(e => msgEl.innerText = e.message);
   }
 
   function signup() {
     auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => msg.innerText = e.message);
+      .catch(e => msgEl.innerText = e.message);
   }
 
   function logout() {
     auth.signOut();
   }
 
-  function show(id) {
-    loading.style.display = auth.style.display = sadhana.style.display = "none";
-    document.getElementById(id).style.display = "block";
+  function show(screen) {
+    loadingEl.style.display = "none";
+    authEl.style.display = "none";
+    sadhanaEl.style.display = "none";
+
+    if (screen === "auth") authEl.style.display = "block";
+    if (screen === "sadhana") sadhanaEl.style.display = "block";
   }
 </script>
 
