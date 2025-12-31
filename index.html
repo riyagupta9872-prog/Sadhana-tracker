@@ -45,70 +45,69 @@
       color: #000080;
     }
     .msg {
-      color: red;
       text-align: center;
       font-size: 14px;
+      margin-top: 10px;
+      color: green;
     }
+    .err { color: red; }
   </style>
 </head>
 
 <body>
 
-<!-- LOADING -->
-<div class="card" id="loading">
-  Checking session…
-</div>
+<div class="card" id="loading">Checking session…</div>
 
-<!-- AUTH -->
 <div class="card" id="auth" style="display:none;">
   <h3>Sadhana Tracker</h3>
   <input id="email" placeholder="Email" />
   <input id="password" type="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-  <p id="msg" class="msg"></p>
+  <p id="authMsg" class="err"></p>
 </div>
 
-<!-- CHANTING CATEGORY -->
 <div class="card" id="category" style="display:none;">
   <h3>Select Chanting Category</h3>
-
-  <label>How many rounds do you chant?</label>
   <select id="categorySelect">
     <option value="">-- Select --</option>
     <option value="0-4">0 – 4 rounds</option>
     <option value="5-9">5 – 9 rounds</option>
     <option value="10-16">10 – 16 rounds</option>
   </select>
-
   <button onclick="saveCategory()">Continue</button>
-  <p id="catMsg" class="msg"></p>
+  <p id="catMsg" class="err"></p>
 </div>
 
-<!-- SADHANA FORM -->
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
 
+  <label>Date</label>
+  <select id="dateSelect"></select>
+
   <label>Sleep Time</label>
-  <input type="time" />
+  <input type="time" id="sleepTime" />
 
   <label>Wake-up Time</label>
-  <input type="time" />
+  <input type="time" id="wakeTime" />
 
   <label>Chanting Completion Time</label>
-  <input type="time" />
+  <input type="time" id="chantingTime" />
 
   <label>Reading Duration (minutes)</label>
-  <input type="number" />
+  <input type="number" id="reading" />
 
   <label>Hearing Hari Katha (minutes)</label>
-  <input type="number" />
+  <input type="number" id="hearing" />
 
   <label>Day Sleep (minutes)</label>
-  <input type="number" />
+  <input type="number" id="daySleep" />
 
+  <button onclick="submitSadhana()">Submit Sadhana</button>
   <button class="secondary" onclick="changeCategory()">Change Chanting Category</button>
-  <button onclick="logout()">Logout</button>
+  <button class="secondary" onclick="logout()">Logout</button>
+
+  <p id="successMsg" class="msg"></p>
 </div>
 
 <script>
@@ -126,8 +125,9 @@
   const authEl = document.getElementById("auth");
   const categoryEl = document.getElementById("category");
   const sadhanaEl = document.getElementById("sadhana");
-  const msgEl = document.getElementById("msg");
+  const authMsgEl = document.getElementById("authMsg");
   const catMsgEl = document.getElementById("catMsg");
+  const successMsgEl = document.getElementById("successMsg");
 
   let currentUserId = null;
 
@@ -136,10 +136,12 @@
       show("auth");
       return;
     }
-
     currentUserId = user.uid;
+
     const key = "chantingCategory_" + currentUserId;
     const savedCategory = localStorage.getItem(key);
+
+    setupAllowedDates();
 
     if (!savedCategory) {
       show("category");
@@ -150,12 +152,12 @@
 
   function login() {
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => msgEl.innerText = e.message);
+      .catch(e => authMsgEl.innerText = e.message);
   }
 
   function signup() {
     auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => msgEl.innerText = e.message);
+      .catch(e => authMsgEl.innerText = e.message);
   }
 
   function saveCategory() {
@@ -164,15 +166,33 @@
       catMsgEl.innerText = "Please select a category";
       return;
     }
-    const key = "chantingCategory_" + currentUserId;
-    localStorage.setItem(key, value);
+    localStorage.setItem("chantingCategory_" + currentUserId, value);
     show("sadhana");
   }
 
   function changeCategory() {
-    const key = "chantingCategory_" + currentUserId;
-    localStorage.removeItem(key);
+    localStorage.removeItem("chantingCategory_" + currentUserId);
     show("category");
+  }
+
+  function setupAllowedDates() {
+    const sel = document.getElementById("dateSelect");
+    sel.innerHTML = "";
+    const today = new Date();
+
+    for (let i = 0; i <= 2; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.text = key;
+      sel.appendChild(opt);
+    }
+  }
+
+  function submitSadhana() {
+    successMsgEl.innerText = "Sadhana submitted 🙏";
   }
 
   function logout() {
