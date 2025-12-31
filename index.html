@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker – Fixed</title>
+  <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
   <style>
     body {
       margin: 0;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: #000080;
       min-height: 100vh;
       display: flex;
@@ -22,9 +23,11 @@
       color: #000080;
       padding: 25px;
       border-radius: 12px;
-      width: 400px;
+      width: 420px;
     }
-    h3 { text-align: center; }
+    h3 {
+      text-align: center;
+    }
     input {
       width: 100%;
       padding: 8px;
@@ -37,28 +40,60 @@
       background: #000080;
       color: white;
       border: none;
+      cursor: pointer;
+    }
+    .msg {
+      color: red;
+      text-align: center;
+      font-size: 14px;
+    }
+    label {
+      font-size: 14px;
+      margin-top: 8px;
+      display: block;
     }
   </style>
 </head>
 
 <body>
 
+<!-- LOADING -->
 <div class="card" id="loading">
   Checking session…
 </div>
 
+<!-- AUTH -->
 <div class="card" id="auth" style="display:none;">
   <h3>Sadhana Tracker</h3>
   <input id="email" placeholder="Email" />
   <input id="password" type="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-  <p id="msg" style="color:red;"></p>
+  <p id="msg" class="msg"></p>
 </div>
 
+<!-- SADHANA FORM -->
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
-  <p>You are logged in ✅</p>
+
+  <label>Sleep Time</label>
+  <input type="time" />
+
+  <label>Wake-up Time</label>
+  <input type="time" />
+
+  <label>Chanting Completion Time</label>
+  <input type="time" />
+
+  <label>Reading Duration (minutes)</label>
+  <input type="number" />
+
+  <label>Hearing Hari Katha (minutes)</label>
+  <input type="number" />
+
+  <label>Day Sleep (minutes)</label>
+  <input type="number" />
+
   <button onclick="logout()">Logout</button>
 </div>
 
