@@ -10,26 +10,44 @@
 
   <style>
     body {
-      margin: 0; font-family: Arial, sans-serif;
-      background: #000080; min-height: 100vh;
-      display: flex; justify-content: center; align-items: center;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000080;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     .card {
-      background: white; color: #000080;
-      padding: 25px; border-radius: 12px; width: 420px;
+      background: white;
+      color: #000080;
+      padding: 25px;
+      border-radius: 12px;
+      width: 420px;
     }
     h3 { text-align: center; }
     label { font-size: 14px; display: block; margin-top: 10px; }
     input, select {
-      width: 100%; padding: 8px; margin-top: 6px;
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
     }
     button {
-      width: 100%; padding: 10px; margin-top: 12px;
-      background: #000080; color: white; border: none; cursor: pointer;
+      width: 100%;
+      padding: 10px;
+      margin-top: 12px;
+      background: #000080;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
-    .secondary { background: #f2f2f2; color: #000080; }
-    .msg { text-align: center; font-size: 14px; margin-top: 10px; color: green; }
+    .secondary {
+      background: #f2f2f2;
+      color: #000080;
+    }
+    .msg { text-align: center; font-size: 14px; margin-top: 10px; }
     .err { color: red; }
+    .success { color: green; }
   </style>
 </head>
 
@@ -43,7 +61,20 @@
   <input id="password" type="password" placeholder="Password" />
   <button onclick="login()">Login</button>
   <button onclick="signup()">Sign Up</button>
-  <p id="authMsg" class="err"></p>
+  <p id="authMsg" class="msg err"></p>
+</div>
+
+<div class="card" id="profile" style="display:none;">
+  <h3>Profile Setup</h3>
+
+  <label>Full Name</label>
+  <input id="displayName" />
+
+  <label>Devotee / Admin ID</label>
+  <input id="devoteeId" />
+
+  <button onclick="saveProfile()">Continue</button>
+  <p id="profileMsg" class="msg err"></p>
 </div>
 
 <div class="card" id="category" style="display:none;">
@@ -55,11 +86,12 @@
     <option value="10-16">10 – 16 rounds</option>
   </select>
   <button onclick="saveCategory()">Continue</button>
-  <p id="catMsg" class="err"></p>
+  <p id="catMsg" class="msg err"></p>
 </div>
 
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
+  <p id="welcome" class="msg success"></p>
 
   <label>Date</label>
   <select id="dateSelect"></select>
@@ -73,20 +105,19 @@
   <label>Chanting Completion Time</label>
   <input type="time" id="chantingTime" />
 
-  <label>Reading Duration (minutes)</label>
+  <label>Reading (minutes)</label>
   <input type="number" id="reading" />
 
-  <label>Hearing Hari Katha (minutes)</label>
+  <label>Hearing (minutes)</label>
   <input type="number" id="hearing" />
 
   <label>Day Sleep (minutes)</label>
   <input type="number" id="daySleep" />
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
-  <button class="secondary" onclick="changeCategory()">Change Chanting Category</button>
   <button class="secondary" onclick="logout()">Logout</button>
 
-  <p id="successMsg" class="msg"></p>
+  <p id="successMsg" class="msg success"></p>
 </div>
 
 <script>
@@ -101,116 +132,93 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  const loadingEl = document.getElementById("loading");
-  const authEl = document.getElementById("auth");
-  const categoryEl = document.getElementById("category");
-  const sadhanaEl = document.getElementById("sadhana");
-  const authMsgEl = document.getElementById("authMsg");
-  const catMsgEl = document.getElementById("catMsg");
-  const successMsgEl = document.getElementById("successMsg");
+  const screens = ["loading","auth","profile","category","sadhana"];
+  const show = id => screens.forEach(s => document.getElementById(s).style.display = s===id?"block":"none");
 
-  let currentUserId = null;
+  let uid = null;
 
   auth.onAuthStateChanged(async user => {
-    if (!user) {
-      show("auth"); return;
-    }
-    currentUserId = user.uid;
-    setupAllowedDates();
+    if (!user) { show("auth"); return; }
+    uid = user.uid;
+    setupDates();
 
-    const userRef = db.collection("users").doc(currentUserId);
-    const snap = await userRef.get();
+    const ref = db.collection("users").doc(uid);
+    const snap = await ref.get();
+    const data = snap.exists ? snap.data() : {};
 
-    if (!snap.exists || !snap.data().chantingCategory) {
+    if (!data.displayName || !data.devoteeId) {
+      show("profile");
+    } else if (!data.chantingCategory) {
       show("category");
     } else {
+      document.getElementById("welcome").innerText = "Welcome, " + data.displayName;
       show("sadhana");
-      preloadSadhana();
     }
   });
 
   function login() {
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => authMsgEl.innerText = e.message);
+      .catch(e => authMsg.innerText = e.message);
   }
   function signup() {
     auth.createUserWithEmailAndPassword(email.value, password.value)
-      .catch(e => authMsgEl.innerText = e.message);
+      .catch(e => authMsg.innerText = e.message);
   }
 
-  async function saveCategory() {
-    const value = categorySelect.value;
-    if (!value) { catMsgEl.innerText = "Please select a category"; return; }
-    await db.collection("users").doc(currentUserId).set({
-      chantingCategory: value,
+  async function saveProfile() {
+    if (!displayName.value || !devoteeId.value) {
+      profileMsg.innerText = "All fields required";
+      return;
+    }
+    await db.collection("users").doc(uid).set({
+      displayName: displayName.value,
+      devoteeId: devoteeId.value,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    show("sadhana");
-  }
-
-  function changeCategory() {
+    }, { merge:true });
     show("category");
   }
 
-  function setupAllowedDates() {
-    const sel = document.getElementById("dateSelect");
-    sel.innerHTML = "";
-    const today = new Date();
-    for (let i = 0; i <= 2; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const opt = document.createElement("option");
-      opt.value = key; opt.text = key;
-      sel.appendChild(opt);
+  async function saveCategory() {
+    if (!categorySelect.value) {
+      catMsg.innerText = "Select category";
+      return;
+    }
+    await db.collection("users").doc(uid).set({
+      chantingCategory: categorySelect.value,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge:true });
+    show("sadhana");
+  }
+
+  function setupDates() {
+    dateSelect.innerHTML="";
+    const t=new Date();
+    for(let i=0;i<=2;i++){
+      const d=new Date(t); d.setDate(t.getDate()-i);
+      const v=d.toISOString().slice(0,10);
+      const o=document.createElement("option");
+      o.value=v; o.text=v; dateSelect.appendChild(o);
     }
   }
 
-  async function preloadSadhana() {
-    const date = document.getElementById("dateSelect").value;
-    const ref = db.collection("users").doc(currentUserId)
-      .collection("sadhana").doc(date);
-    const snap = await ref.get();
-    if (!snap.exists) return;
-    const d = snap.data();
-    sleepTime.value = d.sleepTime || "";
-    wakeTime.value = d.wakeTime || "";
-    chantingTime.value = d.chantingTime || "";
-    reading.value = d.reading || "";
-    hearing.value = d.hearing || "";
-    daySleep.value = d.daySleep || "";
-  }
-
-  document.getElementById("dateSelect").addEventListener("change", preloadSadhana);
-
   async function submitSadhana() {
-    const date = document.getElementById("dateSelect").value;
-    await db.collection("users").doc(currentUserId)
+    const date = dateSelect.value;
+    await db.collection("users").doc(uid)
       .collection("sadhana").doc(date).set({
         date,
-        sleepTime: sleepTime.value,
-        wakeTime: wakeTime.value,
-        chantingTime: chantingTime.value,
-        reading: reading.value,
-        hearing: hearing.value,
-        daySleep: daySleep.value,
+        sleepTime:sleepTime.value,
+        wakeTime:wakeTime.value,
+        chantingTime:chantingTime.value,
+        reading:reading.value,
+        hearing:hearing.value,
+        daySleep:daySleep.value,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    successMsgEl.innerText = "Sadhana submitted 🙏";
+      },{merge:true});
+    successMsg.innerText="Sadhana submitted 🙏";
   }
 
-  function logout() { auth.signOut(); }
-
-  function show(screen) {
-    loadingEl.style.display = "none";
-    authEl.style.display = "none";
-    categoryEl.style.display = "none";
-    sadhanaEl.style.display = "none";
-    if (screen === "auth") authEl.style.display = "block";
-    if (screen === "category") categoryEl.style.display = "block";
-    if (screen === "sadhana") sadhanaEl.style.display = "block";
-  }
+  function logout(){ auth.signOut(); }
 </script>
 
 </body>
