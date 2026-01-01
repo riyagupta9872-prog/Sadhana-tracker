@@ -119,8 +119,8 @@
 
     <!-- TOP TABS -->
     <div class="tabs">
-      <div class="tab active" onclick="showTab('sadhana')">Sadhana</div>
-      <div class="tab" onclick="showTab('reports')">Reports</div>
+      <div class="tab active" onclick="showTab('sadhana', this)">Sadhana</div>
+      <div class="tab" onclick="showTab('reports', this)">Reports</div>
     </div>
 
     <!-- SADHANA TAB -->
@@ -209,11 +209,12 @@
     }
   }
 
-  function showTab(tab){
+  function showTab(tab, el){
     sadhanaTab.style.display = tab==="sadhana" ? "block" : "none";
     reportsTab.style.display = tab==="reports" ? "block" : "none";
+
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    event.target.classList.add("active");
+    el.classList.add("active");
   }
 
   async function submitSadhana(){
