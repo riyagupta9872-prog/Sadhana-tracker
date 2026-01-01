@@ -19,86 +19,54 @@
       justify-content: center;
       align-items: center;
     }
-    .container {
-      width: 95%;
-      max-width: 720px;
-    }
     .card {
       background: white;
       color: #000080;
-      padding: 16px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-    }
-    h3 {
-      margin-top: 0;
+      padding: 20px;
+      border-radius: 12px;
+      width: 95%;
+      max-width: 500px;
       text-align: center;
     }
     button {
       width: 100%;
-      padding: 8px;
-      margin-top: 8px;
+      padding: 10px;
+      margin-top: 10px;
       background: #000080;
       color: white;
       border: none;
       cursor: pointer;
     }
-    .user-row {
+    .user {
       padding: 8px;
       border-bottom: 1px solid #ddd;
-      cursor: pointer;
+      text-align: left;
     }
-    .user-row:hover {
-      background: #f0f0f0;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 4px;
-      text-align: center;
-    }
-    .center {
-      text-align: center;
+    .error {
+      color: red;
+      margin-top: 10px;
     }
   </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="card" id="loading">Checking admin access…</div>
 
-  <div class="card" id="loading">
-    Checking admin access…
-  </div>
+<div class="card" id="denied" style="display:none;">
+  <h3>Access Denied</h3>
+  <p>You are not authorized to view this page.</p>
+  <button onclick="logout()">Logout</button>
+</div>
 
-  <div class="card" id="denied" style="display:none;">
-    <h3>Access Denied</h3>
-    <p class="center">You are not authorized to view this page.</p>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <div id="adminApp" style="display:none;">
-
-    <div class="card">
-      <h3>Admin – Users</h3>
-      <div id="userList"></div>
-      <button onclick="logout()">Logout</button>
-    </div>
-
-    <div class="card" id="reportsCard" style="display:none;">
-      <h3 id="userTitle"></h3>
-      <div id="reports"></div>
-    </div>
-
-  </div>
-
+<div class="card" id="admin" style="display:none;">
+  <h3>Admin Dashboard</h3>
+  <div id="users"></div>
+  <button onclick="logout()">Logout</button>
 </div>
 
 <script>
+  // 🔒 CHANGE THIS ONLY IF NEEDED
   const SUPER_ADMIN_EMAIL = "riyagupta9872@gmail.com";
 
   const firebaseConfig = {
@@ -114,108 +82,44 @@
 
   const loading = document.getElementById("loading");
   const denied = document.getElementById("denied");
-  const adminApp = document.getElementById("adminApp");
+  const admin = document.getElementById("admin");
+  const usersDiv = document.getElementById("users");
 
   auth.onAuthStateChanged(async user => {
     loading.style.display = "none";
 
-    if (!user || user.email !== SUPER_ADMIN_EMAIL) {
+    if (!user) {
+      window.location.href = "./index.html";
+      return;
+    }
+
+    if (user.email !== SUPER_ADMIN_EMAIL) {
       denied.style.display = "block";
       return;
     }
 
-    adminApp.style.display = "block";
+    admin.style.display = "block";
     loadUsers();
   });
 
   async function loadUsers() {
+    usersDiv.innerHTML = "<p>Loading users…</p>";
     const snap = await db.collection("users").get();
-    const list = document.getElementById("userList");
-    list.innerHTML = "";
+    usersDiv.innerHTML = "";
 
     snap.forEach(doc => {
       const d = doc.data();
-      const row = document.createElement("div");
-      row.className = "user-row";
-      row.innerHTML = `
-        <b>${d.name || "No Name"}</b><br>
-        ${d.email || doc.id}<br>
-        Category: ${d.chantingCategory || "-"}
-      `;
-      row.onclick = () => loadReports(doc.id, d.name || "User");
-      list.appendChild(row);
+      const div = document.createElement("div");
+      div.className = "user";
+      div.innerText = `${d.name || "No Name"} — ${d.chantingCategory || "No Category"}`;
+      usersDiv.appendChild(div);
     });
   }
 
-  async function loadReports(uid, name) {
-    document.getElementById("reportsCard").style.display = "block";
-    document.getElementById("userTitle").innerText = name + " – Reports";
-
-    const snap = await db
-      .collection("users")
-      .doc(uid)
-      .collection("sadhana")
-      .get();
-
-    if (snap.empty) {
-      document.getElementById("reports").innerText = "No sadhana data";
-      return;
-    }
-
-    const byWeek = {};
-    snap.forEach(doc => {
-      const d = new Date(doc.id);
-      const sun = new Date(d);
-      sun.setDate(d.getDate() - d.getDay());
-      const key = sun.toISOString().slice(0, 10);
-      byWeek[key] = byWeek[key] || [];
-      byWeek[key].push({ date: doc.id, ...doc.data() });
+  function logout() {
+    auth.signOut().then(() => {
+      window.location.href = "./index.html";
     });
-
-    const weeks = Object.keys(byWeek).sort().reverse();
-    let html = "";
-
-    weeks.forEach(w => {
-      html += `<h4>Week starting ${w}</h4>`;
-      html += `
-        <table>
-          <tr>
-            <th>Date</th>
-            <th>Sleep</th>
-            <th>Wake</th>
-            <th>Chant</th>
-            <th>Read</th>
-            <th>Hear</th>
-            <th>Day Sleep</th>
-          </tr>
-      `;
-      byWeek[w].forEach(r => {
-        html += `
-          <tr>
-            <td>${r.date}</td>
-            <td>${r.sleepTime}</td>
-            <td>${r.wakeTime}</td>
-            <td>${r.chantingTime}</td>
-            <td>${r.reading}</td>
-            <td>${r.hearing}</td>
-            <td>${r.daySleep}</td>
-          </tr>
-        `;
-      });
-      html += `</table>`;
-    });
-
-    document.getElementById("reports").innerHTML = html;
-  }
-
-  async function logout() {
-    try {
-      await auth.signOut();
-    } catch (e) {
-      console.log("Logout error", e);
-    }
-    // Hard reset to clear session
-    window.location.href = window.location.pathname;
   }
 </script>
 
