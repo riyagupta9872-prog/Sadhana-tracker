@@ -22,13 +22,33 @@
     .card {
       background: white;
       color: #000080;
-      padding: 20px;
+      padding: 18px;
       border-radius: 12px;
       width: 95%;
       max-width: 420px;
       box-sizing: border-box;
     }
     h3 { text-align: center; margin-top: 0; }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      background: #e6e6e6;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tab.active {
+      background: #000080;
+      color: white;
+    }
+
     label { display:block; margin-top:10px; font-size:14px; }
     input, select {
       width: 100%;
@@ -79,35 +99,52 @@
   <div id="profileMsg" class="error"></div>
 </div>
 
-<div class="card" id="sadhana" style="display:none;">
-  <h3>Daily Sadhana</h3>
+<div class="card" id="app" style="display:none;">
 
-  <label>Date</label>
-  <select id="date"></select>
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" id="tabSadhana">Sadhana</div>
+    <div class="tab" id="tabReports">Reports</div>
+  </div>
 
-  <label>Sleep Time</label>
-  <input type="time" id="sleep">
+  <!-- Sadhana -->
+  <div id="sadhanaSection">
+    <h3>Daily Sadhana</h3>
 
-  <label>Wake Time</label>
-  <input type="time" id="wake">
+    <label>Date</label>
+    <select id="date"></select>
 
-  <label>Chanting Completion Time</label>
-  <input type="time" id="chant">
+    <label>Sleep Time</label>
+    <input type="time" id="sleep">
 
-  <label>Reading (minutes)</label>
-  <input type="number" id="read">
+    <label>Wake Time</label>
+    <input type="time" id="wake">
 
-  <label>Hearing (minutes)</label>
-  <input type="number" id="hear">
+    <label>Chanting Completion Time</label>
+    <input type="time" id="chant">
 
-  <label>Day Sleep (minutes)</label>
-  <input type="number" id="daysleep">
+    <label>Reading (minutes)</label>
+    <input type="number" id="read">
 
-  <button onclick="submitSadhana()">Submit Sadhana</button>
-  <div id="sadhanaErr" class="error"></div>
-  <div id="sadhanaOk" class="success"></div>
+    <label>Hearing (minutes)</label>
+    <input type="number" id="hear">
 
-  <button onclick="logout()">Logout</button>
+    <label>Day Sleep (minutes)</label>
+    <input type="number" id="daysleep">
+
+    <button onclick="submitSadhana()">Submit Sadhana</button>
+    <div id="sadhanaErr" class="error"></div>
+    <div id="sadhanaOk" class="success"></div>
+
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- Reports placeholder -->
+  <div id="reportsSection" style="display:none;">
+    <h3>Reports</h3>
+    <p style="text-align:center;">Reports will appear here.</p>
+  </div>
+
 </div>
 
 <script>
@@ -125,13 +162,18 @@
   const loading = document.getElementById("loading");
   const authBox = document.getElementById("auth");
   const profileBox = document.getElementById("profile");
-  const sadhanaBox = document.getElementById("sadhana");
+  const appBox = document.getElementById("app");
+
+  const tabSadhana = document.getElementById("tabSadhana");
+  const tabReports = document.getElementById("tabReports");
+  const sadhanaSection = document.getElementById("sadhanaSection");
+  const reportsSection = document.getElementById("reportsSection");
 
   function hideAll(){
     loading.style.display="none";
     authBox.style.display="none";
     profileBox.style.display="none";
-    sadhanaBox.style.display="none";
+    appBox.style.display="none";
   }
 
   auth.onAuthStateChanged(async user=>{
@@ -146,8 +188,22 @@
       return;
     }
     initDates();
-    sadhanaBox.style.display="block";
+    appBox.style.display="block";
   });
+
+  tabSadhana.onclick = () => {
+    tabSadhana.classList.add("active");
+    tabReports.classList.remove("active");
+    sadhanaSection.style.display="block";
+    reportsSection.style.display="none";
+  };
+
+  tabReports.onclick = () => {
+    tabReports.classList.add("active");
+    tabSadhana.classList.remove("active");
+    sadhanaSection.style.display="none";
+    reportsSection.style.display="block";
+  };
 
   function login(){
     auth.signInWithEmailAndPassword(email.value, password.value)
@@ -215,4 +271,4 @@
 </script>
 
 </body>
-</html> 
+</html>
