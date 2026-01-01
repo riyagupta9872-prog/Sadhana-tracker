@@ -4,176 +4,339 @@
   <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     body {
-      margin: 0;
       font-family: Arial, sans-serif;
       background: #000080;
+      margin: 0;
       min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
     }
+    .container {
+      width: 95%;
+      max-width: 520px;
+    }
     .card {
       background: white;
+      padding: 16px;
+      border-radius: 10px;
       color: #000080;
-      padding: 20px;
-      border-radius: 12px;
-      width: 420px;
+      margin-bottom: 10px;
     }
-    h3 { text-align: center; }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 6px;
+    h3 { text-align: center; margin-top: 0; }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      overflow: hidden;
     }
-    button {
-      width: 100%;
+    .tab {
+      flex: 1;
       padding: 10px;
-      margin-top: 12px;
+      text-align: center;
+      cursor: pointer;
+      background: #e6e6e6;
+      font-weight: bold;
+    }
+    .tab.active {
       background: #000080;
       color: white;
-      border: none;
-      cursor: pointer;
+    }
+
+    label { display:block; margin-top:8px; }
+    input, select {
+      width:100%;
+      padding:6px;
+      margin-top:4px;
+    }
+    button {
+      width:100%;
+      margin-top:10px;
+      padding:8px;
+      background:#000080;
+      color:white;
+      border:none;
+      cursor:pointer;
+    }
+    .error { color:#b00000; text-align:center; }
+    .success { color:green; text-align:center; }
+
+    table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    th, td {
+      border:1px solid #ccc;
+      padding:4px;
+      text-align:center;
+    }
+    .week-header {
+      margin-top:8px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    .user-row {
+      padding:6px;
+      border-bottom:1px solid #ddd;
+      cursor:pointer;
     }
   </style>
 </head>
 
 <body>
 
-<div class="card" id="loading">Checking session…</div>
+<div class="container">
 
-<div class="card" id="login" style="display:none;">
-  <h3>Sadhana Tracker</h3>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password">
-  <button onclick="login()">Login</button>
-</div>
+  <div class="card" id="loading">Checking session…</div>
 
-<div class="card" id="profile" style="display:none;">
-  <h3>Profile Setup</h3>
-  <input id="name" placeholder="Your Name">
-  <select id="category">
-    <option value="">Select Chanting Category</option>
-    <option>0-4</option>
-    <option>5-9</option>
-    <option>10-16</option>
-  </select>
-  <button onclick="saveProfile()">Save Profile</button>
-</div>
+  <div class="card" id="login" style="display:none;">
+    <h3>Login</h3>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password">
+    <button onclick="loginUser()">Login</button>
+  </div>
 
-<div class="card" id="sadhana" style="display:none;">
-  <h3>Daily Sadhana</h3>
+  <div class="card" id="profile" style="display:none;">
+    <h3>Profile Setup</h3>
+    <label>Name</label>
+    <input id="profileName">
+    <label>Chanting Category</label>
+    <select id="profileCategory">
+      <option value="">Select</option>
+      <option value="0-4">0–4</option>
+      <option value="5-9">5–9</option>
+      <option value="10-16">10–16</option>
+    </select>
+    <button onclick="saveProfile()">Save</button>
+    <div id="profileError" class="error"></div>
+  </div>
 
-  <label>Date</label>
-  <select id="date"></select>
+  <div id="app" style="display:none;">
 
-  <label>Sleep Time</label>
-  <input type="time" id="sleep">
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" id="tabSadhana">Sadhana</div>
+      <div class="tab" id="tabReports">Reports</div>
+    </div>
 
-  <label>Wake Time</label>
-  <input type="time" id="wake">
+    <!-- SADHANA -->
+    <div class="card" id="sadhanaSection">
+      <h3>Daily Sadhana</h3>
 
-  <label>Chanting Completion</label>
-  <input type="time" id="chant">
+      <label>Date</label>
+      <select id="date"></select>
 
-  <label>Reading (minutes)</label>
-  <input type="number" id="read">
+      <label>Sleep</label><input type="time" id="sleep">
+      <label>Wake</label><input type="time" id="wake">
+      <label>Chanting</label><input type="time" id="chant">
+      <label>Reading (min)</label><input type="number" id="read">
+      <label>Hearing (min)</label><input type="number" id="hear">
+      <label>Day Sleep (min)</label><input type="number" id="daysleep">
 
-  <label>Hearing (minutes)</label>
-  <input type="number" id="hear">
+      <button onclick="submitSadhana()">Submit</button>
+      <div id="msgError" class="error"></div>
+      <div id="msgSuccess" class="success"></div>
+      <button onclick="logoutUser()">Logout</button>
+    </div>
 
-  <label>Day Sleep (minutes)</label>
-  <input type="number" id="daysleep">
+    <!-- REPORTS -->
+    <div class="card" id="reportsSection" style="display:none;">
+      <h3>Current Week</h3>
+      <div id="currentWeek"></div>
 
-  <button onclick="submitSadhana()">Submit Sadhana</button>
-  <button onclick="logout()">Logout</button>
+      <h3>Previous Weeks</h3>
+      <div id="previousWeeks"></div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="card" id="adminPanel" style="display:none;">
+      <h3>Admin Panel</h3>
+      <div id="userList"></div>
+      <h3 id="adminUserTitle"></h3>
+      <div id="adminUserReports"></div>
+    </div>
+
+  </div>
+
 </div>
 
 <script>
-firebase.initializeApp({
-  apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-  authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-  projectId: "sadhana-tracker-b65ff"
-});
+  const SUPER_ADMIN_EMAIL = "riyagupta9872@gmail.com";
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-let uid;
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+    projectId: "sadhana-tracker-b65ff",
+    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+  };
 
-auth.onAuthStateChanged(async user => {
-  hideAll();
-  if (!user) {
-    login.style.display = "block";
-    return;
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  let uid, userRole="user";
+  let datesInit=false;
+
+  function hideAll(){
+    loading.style.display="none";
+    login.style.display="none";
+    profile.style.display="none";
+    app.style.display="none";
   }
-  uid = user.uid;
-  const doc = await db.collection("users").doc(uid).get();
-  if (!doc.exists || !doc.data().chantingCategory) {
-    profile.style.display = "block";
-  } else {
-    sadhana.style.display = "block";
+
+  auth.onAuthStateChanged(async user=>{
+    hideAll();
+    if(!user){ login.style.display="block"; return; }
+
+    uid=user.uid;
+    const ref=db.collection("users").doc(uid);
+    const doc=await ref.get();
+
+    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
+      profile.style.display="block"; return;
+    }
+
+    userRole=doc.data().role||"user";
+
+    app.style.display="block";
+    initDates();
+    loadReports(uid);
+
+    if(user.email===SUPER_ADMIN_EMAIL || userRole==="admin"){
+      adminPanel.style.display="block";
+      loadUsers();
+    }
+  });
+
+  function initDates(){
+    if(datesInit) return;
+    datesInit=true;
+    const t=new Date();
+    for(let i=0;i<3;i++){
+      const d=new Date(t);
+      d.setDate(t.getDate()-i);
+      const o=document.createElement("option");
+      o.value=d.toISOString().slice(0,10);
+      o.textContent=o.value;
+      date.appendChild(o);
+    }
+  }
+
+  tabSadhana.onclick=()=>{
+    sadhanaSection.style.display="block";
+    reportsSection.style.display="none";
+    tabSadhana.classList.add("active");
+    tabReports.classList.remove("active");
+  };
+  tabReports.onclick=()=>{
+    sadhanaSection.style.display="none";
+    reportsSection.style.display="block";
+    tabReports.classList.add("active");
+    tabSadhana.classList.remove("active");
+  };
+
+  async function submitSadhana(){
+    const f=[sleep,wake,chant,read,hear,daysleep];
+    if(f.some(x=>x.value==="")){
+      msgError.innerText="All fields compulsory"; return;
+    }
+    await db.collection("users").doc(uid)
+      .collection("sadhana").doc(date.value)
+      .set({
+        sleepTime:sleep.value,
+        wakeTime:wake.value,
+        chantingTime:chant.value,
+        reading:read.value,
+        hearing:hear.value,
+        daySleep:daysleep.value
+      });
+    msgSuccess.innerText="Sadhana submitted successfully 🙏";
+    f.forEach(x=>x.value="");
+    loadReports(uid);
+  }
+
+  async function loadReports(userId){
+    const snap=await db.collection("users").doc(userId).collection("sadhana").get();
+    const byWeek={};
+    snap.forEach(doc=>{
+      const dt=new Date(doc.id);
+      const sun=new Date(dt);
+      sun.setDate(dt.getDate()-dt.getDay());
+      const k=sun.toISOString().slice(0,10);
+      byWeek[k]=byWeek[k]||[];
+      byWeek[k].push({date:doc.id,...doc.data()});
+    });
+    const weeks=Object.keys(byWeek).sort().reverse();
+    renderTable(currentWeek,byWeek[weeks[0]]||[]);
+    previousWeeks.innerHTML="";
+    weeks.slice(1).forEach(w=>{
+      const d=document.createElement("div");
+      d.innerHTML=`<div class="week-header">${w}</div><div style="display:none"></div>`;
+      d.children[0].onclick=()=>{
+        const c=d.children[1];
+        c.style.display=c.style.display==="none"?"block":"none";
+        renderTable(c,byWeek[w]);
+      };
+      previousWeeks.appendChild(d);
+    });
+  }
+
+  function renderTable(el,data){
+    if(!data.length){ el.innerHTML="No data"; return; }
+    let h="<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Day Sleep</th></tr>";
+    data.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
+      h+=`<tr><td>${r.date}</td><td>${r.sleepTime}</td><td>${r.wakeTime}</td><td>${r.chantingTime}</td><td>${r.reading}</td><td>${r.hearing}</td><td>${r.daySleep}</td></tr>`;
+    });
+    el.innerHTML=h+"</table>";
+  }
+
+  async function loadUsers(){
+    const snap=await db.collection("users").get();
+    userList.innerHTML="";
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const row=document.createElement("div");
+      row.className="user-row";
+      row.innerHTML=`${d.name} (${d.role||"user"})`;
+      if(auth.currentUser.email===SUPER_ADMIN_EMAIL){
+        row.innerHTML+=` <button onclick="toggleAdmin('${doc.id}','${d.role||"user"}')">Toggle Admin</button>`;
+      }
+      row.onclick=()=>loadReports(doc.id);
+      userList.appendChild(row);
+    });
+  }
+
+  async function toggleAdmin(id,role){
+    const newRole=role==="admin"?"user":"admin";
+    await db.collection("users").doc(id).update({role:newRole});
+    loadUsers();
+  }
+
+  function loginUser(){ auth.signInWithEmailAndPassword(email.value,password.value); }
+  function logoutUser(){ auth.signOut(); }
+
+  async function saveProfile(){
+    if(!profileName.value||!profileCategory.value){
+      profileError.innerText="All fields mandatory"; return;
+    }
+    await db.collection("users").doc(uid).set({
+      name:profileName.value,
+      chantingCategory:profileCategory.value,
+      role:"user"
+    },{merge:true});
+    hideAll();
+    app.style.display="block";
     initDates();
   }
-});
-
-function hideAll() {
-  loading.style.display = "none";
-  login.style.display = "none";
-  profile.style.display = "none";
-  sadhana.style.display = "none";
-}
-
-function initDates() {
-  if (date.options.length) return;
-  for (let i = 0; i < 3; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const o = document.createElement("option");
-    o.value = d.toISOString().slice(0,10);
-    o.textContent = o.value;
-    date.appendChild(o);
-  }
-}
-
-function login() {
-  auth.signInWithEmailAndPassword(email.value, password.value);
-}
-
-function logout() {
-  auth.signOut();
-}
-
-async function saveProfile() {
-  await db.collection("users").doc(uid).set({
-    name: name.value,
-    chantingCategory: category.value
-  }, { merge: true });
-  sadhana.style.display = "block";
-  profile.style.display = "none";
-  initDates();
-}
-
-async function submitSadhana() {
-  await db.collection("users").doc(uid)
-    .collection("sadhana").doc(date.value)
-    .set({
-      sleep: sleep.value,
-      wake: wake.value,
-      chant: chant.value,
-      read: read.value,
-      hear: hear.value,
-      daysleep: daysleep.value,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  alert("Sadhana submitted successfully");
-}
 </script>
 
 </body>
-</html> 
+</html>
