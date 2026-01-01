@@ -1,267 +1,240 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Sadhana Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <meta charset="UTF-8" />
+  <title>Sadhana Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: #000080;
-      min-height: 100vh;
+      color: #000;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(90deg, #000080, #1a237e);
+      color: white;
+      padding: 14px 16px;
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
     }
-    .container { width: 95%; max-width: 520px; }
+    .header h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .header small {
+      opacity: 0.9;
+    }
+    .logout-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Main */
+    .container {
+      padding: 16px;
+      max-width: 480px;
+      margin: auto;
+    }
+
     .card {
       background: white;
+      border-radius: 14px;
       padding: 16px;
-      border-radius: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
       color: #000080;
     }
-    h3 { text-align: center; margin-top: 0; }
 
-    .tabs {
-      display: flex;
-      margin-bottom: 10px;
+    label {
+      font-size: 14px;
+      margin-top: 10px;
+      display: block;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    .primary-btn {
+      margin-top: 16px;
+      width: 100%;
+      padding: 12px;
+      background: #000080;
+      color: white;
+      border: none;
       border-radius: 10px;
-      overflow: hidden;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .score-card {
+      background: #eef3ff;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .score-card h1 {
+      margin: 8px 0;
+      font-size: 32px;
+      color: #000080;
+    }
+
+    /* Tabs */
+    .tabs {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      display: flex;
+      border-top: 1px solid #ddd;
     }
     .tab {
       flex: 1;
-      padding: 10px;
+      padding: 12px 0;
       text-align: center;
-      background: #e6e6e6;
-      font-weight: bold;
+      font-size: 13px;
       cursor: pointer;
+      color: #555;
     }
     .tab.active {
-      background: #000080;
-      color: white;
+      color: #000080;
+      font-weight: bold;
+      border-top: 3px solid #000080;
     }
 
-    label { display:block; margin-top:8px; }
-    input, select {
-      width:100%;
-      padding:6px;
-      margin-top:4px;
-    }
-    button {
-      width:100%;
-      margin-top:10px;
-      padding:8px;
-      background:#000080;
-      color:white;
-      border:none;
-      cursor:pointer;
-    }
-    .error { color:#b00000; text-align:center; }
-    .success { color:green; text-align:center; }
-
-    table {
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px;
-    }
-    th, td {
-      border:1px solid #ccc;
-      padding:4px;
-      text-align:center;
-    }
-    .week-header {
-      margin-top:8px;
-      font-weight:bold;
-      cursor:pointer;
+    .hidden {
+      display: none;
     }
   </style>
 </head>
 
 <body>
-<div class="container">
 
-  <div class="card" id="loading">Checking session…</div>
-
-  <div class="card" id="login" style="display:none;">
-    <h3>Login</h3>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password">
-    <button id="loginBtn">Login</button>
-    <div id="loginError" class="error"></div>
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h2>Sadhana Dashboard</h2>
+      <small>Welcome, Riya Gupta</small>
+    </div>
+    <button class="logout-btn">Logout</button>
   </div>
 
-  <div class="card" id="profile" style="display:none;">
-    <h3>Profile Setup</h3>
-    <label>Name</label>
-    <input id="profileName">
-    <label>Chanting Category</label>
-    <select id="profileCategory">
-      <option value="">Select</option>
-      <option value="0-4">0–4</option>
-      <option value="5-9">5–9</option>
-      <option value="10-16">10–16</option>
-    </select>
-    <button id="saveProfileBtn">Save Profile</button>
-    <div id="profileError" class="error"></div>
+  <!-- CONTENT -->
+  <div class="container">
+
+    <!-- TODAY -->
+    <div id="todayView">
+
+      <div class="card">
+        <h3>Today's Entry</h3>
+
+        <label>Category (Tier)</label>
+        <select>
+          <option>Select</option>
+          <option>0–4</option>
+          <option>5–9</option>
+          <option>10–16</option>
+        </select>
+
+        <label>Sleep Time</label>
+        <input type="time" />
+
+        <label>Wake Time</label>
+        <input type="time" />
+
+        <label>Chanting Rounds (0–16)</label>
+        <input type="number" min="0" max="16" value="0" />
+
+        <label>Reading Duration (minutes)</label>
+        <input type="number" value="0" />
+
+        <label>Hearing Duration (minutes)</label>
+        <input type="number" value="0" />
+
+        <label>Daytime Nap (minutes)</label>
+        <input type="number" value="0" />
+
+        <button class="primary-btn">Save Entry</button>
+      </div>
+
+      <div class="card score-card">
+        <small>Today's Score</small>
+        <h1>0 / 100</h1>
+        <small>Last updated: --</small>
+      </div>
+
+    </div>
+
+    <!-- WEEKLY -->
+    <div id="weeklyView" class="hidden">
+      <div class="card">
+        <h3>Weekly Report</h3>
+        <p>Weekly data will appear here.</p>
+      </div>
+    </div>
+
+    <!-- MONTHLY -->
+    <div id="monthlyView" class="hidden">
+      <div class="card">
+        <h3>Monthly Report</h3>
+        <p>Monthly summary will appear here.</p>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <div id="tasksView" class="hidden">
+      <div class="card">
+        <h3>Active Tasks</h3>
+        <p>No active tasks at the moment.</p>
+      </div>
+    </div>
+
   </div>
 
-  <div id="app" style="display:none;">
-
-    <div class="tabs">
-      <div class="tab active" id="tabSadhana">Sadhana</div>
-      <div class="tab" id="tabReports">Reports</div>
-    </div>
-
-    <div class="card" id="sadhanaSection">
-      <h3>Daily Sadhana</h3>
-
-      <label>Date</label>
-      <select id="date"></select>
-
-      <label>Sleep</label><input type="time" id="sleep">
-      <label>Wake</label><input type="time" id="wake">
-      <label>Chanting</label><input type="time" id="chant">
-      <label>Reading (min)</label><input type="number" id="read">
-      <label>Hearing (min)</label><input type="number" id="hear">
-      <label>Day Sleep (min)</label><input type="number" id="daysleep">
-
-      <button id="submitBtn">Submit</button>
-      <div id="msgError" class="error"></div>
-      <div id="msgSuccess" class="success"></div>
-      <button id="logoutBtn">Logout</button>
-    </div>
-
-    <div class="card" id="reportsSection" style="display:none;">
-      <h3>Reports</h3>
-      <div id="currentWeek"></div>
-    </div>
-
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('today')">Today</div>
+    <div class="tab" onclick="switchTab('weekly')">Weekly</div>
+    <div class="tab" onclick="switchTab('monthly')">Monthly</div>
+    <div class="tab" onclick="switchTab('tasks')">Tasks</div>
   </div>
-</div>
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-    projectId: "sadhana-tracker-b65ff",
-    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
-  };
+  <script>
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
 
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
+      document.getElementById('todayView').classList.add('hidden');
+      document.getElementById('weeklyView').classList.add('hidden');
+      document.getElementById('monthlyView').classList.add('hidden');
+      document.getElementById('tasksView').classList.add('hidden');
 
-  const loading = document.getElementById("loading");
-  const login = document.getElementById("login");
-  const profile = document.getElementById("profile");
-  const app = document.getElementById("app");
-
-  const profileName = document.getElementById("profileName");
-  const profileCategory = document.getElementById("profileCategory");
-  const profileError = document.getElementById("profileError");
-
-  let uid;
-
-  function hideAll(){
-    loading.style.display="none";
-    login.style.display="none";
-    profile.style.display="none";
-    app.style.display="none";
-  }
-
-  auth.onAuthStateChanged(async user=>{
-    hideAll();
-    if(!user){ login.style.display="block"; return; }
-
-    uid=user.uid;
-    const doc = await db.collection("users").doc(uid).get();
-
-    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
-      profile.style.display="block";
-      return;
+      if (tab === 'today') todayView.classList.remove('hidden');
+      if (tab === 'weekly') weeklyView.classList.remove('hidden');
+      if (tab === 'monthly') monthlyView.classList.remove('hidden');
+      if (tab === 'tasks') tasksView.classList.remove('hidden');
     }
+  </script>
 
-    app.style.display="block";
-    initDates();
-  });
-
-  document.getElementById("loginBtn").onclick = ()=>{
-    auth.signInWithEmailAndPassword(
-      email.value,
-      password.value
-    ).catch(e=>{
-      document.getElementById("loginError").innerText=e.message;
-    });
-  };
-
-  document.getElementById("saveProfileBtn").onclick = async ()=>{
-    if(!profileName.value || !profileCategory.value){
-      profileError.innerText="All fields mandatory";
-      return;
-    }
-    await db.collection("users").doc(uid).set({
-      name: profileName.value,
-      chantingCategory: profileCategory.value,
-      createdAt: new Date()
-    });
-    profile.style.display="none";
-    app.style.display="block";
-    initDates();
-  };
-
-  function initDates(){
-    date.innerHTML="";
-    const t=new Date();
-    for(let i=0;i<3;i++){
-      const d=new Date(t);
-      d.setDate(t.getDate()-i);
-      const o=document.createElement("option");
-      o.value=d.toISOString().slice(0,10);
-      o.textContent=o.value;
-      date.appendChild(o);
-    }
-  }
-
-  document.getElementById("submitBtn").onclick = async ()=>{
-    const fields=[sleep,wake,chant,read,hear,daysleep];
-    if(fields.some(f=>!f.value)){
-      msgError.innerText="All fields compulsory";
-      return;
-    }
-    await db.collection("users").doc(uid)
-      .collection("sadhana").doc(date.value)
-      .set({
-        sleep:sleep.value,
-        wake:wake.value,
-        chant:chant.value,
-        read:read.value,
-        hear:hear.value,
-        daysleep:daysleep.value
-      });
-    msgSuccess.innerText="Sadhana submitted successfully 🙏";
-    fields.forEach(f=>f.value="");
-  };
-
-  document.getElementById("logoutBtn").onclick=()=>auth.signOut();
-
-  tabSadhana.onclick=()=>{
-    sadhanaSection.style.display="block";
-    reportsSection.style.display="none";
-    tabSadhana.classList.add("active");
-    tabReports.classList.remove("active");
-  };
-  tabReports.onclick=()=>{
-    sadhanaSection.style.display="none";
-    reportsSection.style.display="block";
-    tabReports.classList.add("active");
-    tabSadhana.classList.remove("active");
-  };
-</script>
 </body>
 </html>
