@@ -68,6 +68,26 @@
     }
     .error { color:#b00000; text-align:center; margin-top:8px; }
     .success { color:green; text-align:center; margin-top:8px; }
+
+    table {
+      width:100%;
+      border-collapse: collapse;
+      font-size:12px;
+      margin-top:8px;
+    }
+    th, td {
+      border:1px solid #ccc;
+      padding:4px;
+      text-align:center;
+    }
+    .weekHeader {
+      margin-top:10px;
+      font-weight:bold;
+      cursor:pointer;
+      background:#f2f2f2;
+      padding:6px;
+      border-radius:6px;
+    }
   </style>
 </head>
 
@@ -139,10 +159,13 @@
     <button onclick="logout()">Logout</button>
   </div>
 
-  <!-- Reports placeholder -->
+  <!-- Reports -->
   <div id="reportsSection" style="display:none;">
-    <h3>Reports</h3>
-    <p style="text-align:center;">Reports will appear here.</p>
+    <h3>Current Week</h3>
+    <div id="currentWeek"></div>
+
+    <h3>Previous Weeks</h3>
+    <div id="previousWeeks"></div>
   </div>
 
 </div>
@@ -169,6 +192,9 @@
   const sadhanaSection = document.getElementById("sadhanaSection");
   const reportsSection = document.getElementById("reportsSection");
 
+  const currentWeekEl = document.getElementById("currentWeek");
+  const previousWeeksEl = document.getElementById("previousWeeks");
+
   function hideAll(){
     loading.style.display="none";
     authBox.style.display="none";
@@ -189,6 +215,7 @@
     }
     initDates();
     appBox.style.display="block";
+    loadReports(); // read-only
   });
 
   tabSadhana.onclick = () => {
@@ -267,6 +294,74 @@
       });
     sadhanaOk.innerText="Sadhana submitted successfully 🙏";
     fields.forEach(f=>f.value="");
+    loadReports();
+  }
+
+  // ===== REPORTS (READ-ONLY) =====
+  function startOfWeek(d){
+    const x = new Date(d);
+    x.setDate(x.getDate() - x.getDay());
+    x.setHours(0,0,0,0);
+    return x;
+  }
+
+  async function loadReports(){
+    currentWeekEl.innerHTML = "Loading…";
+    previousWeeksEl.innerHTML = "";
+
+    const snap = await db.collection("users")
+      .doc(auth.currentUser.uid)
+      .collection("sadhana")
+      .get();
+
+    const byWeek = {};
+    snap.forEach(doc=>{
+      const day = new Date(doc.id);
+      if (isNaN(day)) return;
+      const w = startOfWeek(day).toISOString().slice(0,10);
+      byWeek[w] = byWeek[w] || [];
+      byWeek[w].push({ date: doc.id, ...doc.data() });
+    });
+
+    const weeks = Object.keys(byWeek).sort().reverse();
+    renderWeek(currentWeekEl, byWeek[weeks[0]] || []);
+
+    weeks.slice(1).forEach(w=>{
+      const block = document.createElement("div");
+      const header = document.createElement("div");
+      const body = document.createElement("div");
+      header.className="weekHeader";
+      header.textContent = w;
+      body.style.display="none";
+      header.onclick=()=> {
+        body.style.display = body.style.display==="none" ? "block" : "none";
+      };
+      block.appendChild(header);
+      block.appendChild(body);
+      previousWeeksEl.appendChild(block);
+      renderWeek(body, byWeek[w]);
+    });
+  }
+
+  function renderWeek(el, rows){
+    if(!rows.length){
+      el.innerHTML = "No data";
+      return;
+    }
+    rows.sort((a,b)=>a.date.localeCompare(b.date));
+    let h = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Day Sleep</th></tr>";
+    rows.forEach(r=>{
+      h += `<tr>
+        <td>${r.date}</td>
+        <td>${r.sleepTime}</td>
+        <td>${r.wakeTime}</td>
+        <td>${r.chantingTime}</td>
+        <td>${r.reading}</td>
+        <td>${r.hearing}</td>
+        <td>${r.daySleep}</td>
+      </tr>`;
+    });
+    el.innerHTML = h + "</table>";
   }
 </script>
 
