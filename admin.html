@@ -21,17 +21,28 @@
     }
     .container {
       width: 95%;
-      max-width: 700px;
+      max-width: 720px;
     }
     .card {
-      background: #fff;
+      background: white;
       color: #000080;
       padding: 16px;
       border-radius: 10px;
       margin-bottom: 10px;
     }
-    h3 { margin-top: 0; text-align: center; }
-
+    h3 {
+      margin-top: 0;
+      text-align: center;
+    }
+    button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 8px;
+      background: #000080;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
     .user-row {
       padding: 8px;
       border-bottom: 1px solid #ddd;
@@ -40,7 +51,6 @@
     .user-row:hover {
       background: #f0f0f0;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
@@ -51,19 +61,7 @@
       padding: 4px;
       text-align: center;
     }
-
-    button {
-      width: 100%;
-      padding: 8px;
-      margin-top: 8px;
-      background: #000080;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    .error {
-      color: #b00000;
+    .center {
       text-align: center;
     }
   </style>
@@ -73,11 +71,13 @@
 
 <div class="container">
 
-  <div class="card" id="loading">Checking admin access…</div>
+  <div class="card" id="loading">
+    Checking admin access…
+  </div>
 
   <div class="card" id="denied" style="display:none;">
     <h3>Access Denied</h3>
-    <p style="text-align:center;">You are not authorized to view this page.</p>
+    <p class="center">You are not authorized to view this page.</p>
     <button onclick="logout()">Logout</button>
   </div>
 
@@ -137,10 +137,12 @@
       const d = doc.data();
       const row = document.createElement("div");
       row.className = "user-row";
-      row.innerHTML = `<b>${d.name || "No Name"}</b><br>
+      row.innerHTML = `
+        <b>${d.name || "No Name"}</b><br>
         ${d.email || doc.id}<br>
-        Category: ${d.chantingCategory || "-"}`;
-      row.onclick = () => loadReports(doc.id, d.name);
+        Category: ${d.chantingCategory || "-"}
+      `;
+      row.onclick = () => loadReports(doc.id, d.name || "User");
       list.appendChild(row);
     });
   }
@@ -149,8 +151,11 @@
     document.getElementById("reportsCard").style.display = "block";
     document.getElementById("userTitle").innerText = name + " – Reports";
 
-    const snap = await db.collection("users").doc(uid)
-      .collection("sadhana").get();
+    const snap = await db
+      .collection("users")
+      .doc(uid)
+      .collection("sadhana")
+      .get();
 
     if (snap.empty) {
       document.getElementById("reports").innerText = "No sadhana data";
@@ -162,7 +167,7 @@
       const d = new Date(doc.id);
       const sun = new Date(d);
       sun.setDate(d.getDate() - d.getDay());
-      const key = sun.toISOString().slice(0,10);
+      const key = sun.toISOString().slice(0, 10);
       byWeek[key] = byWeek[key] || [];
       byWeek[key].push({ date: doc.id, ...doc.data() });
     });
@@ -172,21 +177,30 @@
 
     weeks.forEach(w => {
       html += `<h4>Week starting ${w}</h4>`;
-      html += `<table>
-        <tr>
-          <th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th>
-          <th>Read</th><th>Hear</th><th>Day Sleep</th>
-        </tr>`;
+      html += `
+        <table>
+          <tr>
+            <th>Date</th>
+            <th>Sleep</th>
+            <th>Wake</th>
+            <th>Chant</th>
+            <th>Read</th>
+            <th>Hear</th>
+            <th>Day Sleep</th>
+          </tr>
+      `;
       byWeek[w].forEach(r => {
-        html += `<tr>
-          <td>${r.date}</td>
-          <td>${r.sleepTime}</td>
-          <td>${r.wakeTime}</td>
-          <td>${r.chantingTime}</td>
-          <td>${r.reading}</td>
-          <td>${r.hearing}</td>
-          <td>${r.daySleep}</td>
-        </tr>`;
+        html += `
+          <tr>
+            <td>${r.date}</td>
+            <td>${r.sleepTime}</td>
+            <td>${r.wakeTime}</td>
+            <td>${r.chantingTime}</td>
+            <td>${r.reading}</td>
+            <td>${r.hearing}</td>
+            <td>${r.daySleep}</td>
+          </tr>
+        `;
       });
       html += `</table>`;
     });
@@ -194,9 +208,14 @@
     document.getElementById("reports").innerHTML = html;
   }
 
-  function logout() {
-    auth.signOut();
-    location.reload();
+  async function logout() {
+    try {
+      await auth.signOut();
+    } catch (e) {
+      console.log("Logout error", e);
+    }
+    // Hard reset to clear session
+    window.location.href = window.location.pathname;
   }
 </script>
 
