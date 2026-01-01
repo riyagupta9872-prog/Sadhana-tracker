@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sadhana Tracker – Stable Base</title>
+  <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -22,11 +22,28 @@
       background: white;
       padding: 20px;
       border-radius: 10px;
-      width: 90%;
-      max-width: 400px;
+      width: 95%;
+      max-width: 420px;
       color: #000080;
     }
-    h3 { text-align: center; }
+    h3 { text-align: center; margin-top: 0; }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-weight: bold;
+    }
+    .tab.active {
+      border-bottom: 3px solid #000080;
+    }
+
     label { display: block; margin-top: 10px; font-size: 14px; }
     input, select {
       width: 100%;
@@ -42,6 +59,13 @@
       border: none;
       cursor: pointer;
     }
+
+    .placeholder {
+      text-align: center;
+      padding: 30px 10px;
+      font-size: 14px;
+      color: #444;
+    }
   </style>
 </head>
 
@@ -54,32 +78,47 @@
   <button onclick="login()">Login</button>
 </div>
 
-<div class="card" id="sadhanaCard" style="display:none;">
-  <h3>Daily Sadhana</h3>
+<div class="card" id="appCard" style="display:none;">
+  <h3>Sadhana Tracker</h3>
 
-  <label>Date</label>
-  <select id="dateSelect"></select>
+  <div class="tabs">
+    <div class="tab active" id="tabSadhana" onclick="showTab('sadhana')">Sadhana</div>
+    <div class="tab" id="tabScores" onclick="showTab('scores')">Scores</div>
+  </div>
 
-  <label>Sleep Time</label>
-  <input type="time" id="sleepTime">
+  <!-- SADHANA TAB -->
+  <div id="sadhanaTab">
+    <label>Date</label>
+    <select id="dateSelect"></select>
 
-  <label>Wake Time</label>
-  <input type="time" id="wakeTime">
+    <label>Sleep Time</label>
+    <input type="time" id="sleepTime">
 
-  <label>Chanting Completion</label>
-  <input type="time" id="chantingTime">
+    <label>Wake Time</label>
+    <input type="time" id="wakeTime">
 
-  <label>Reading (minutes)</label>
-  <input type="number" id="reading">
+    <label>Chanting Completion</label>
+    <input type="time" id="chantingTime">
 
-  <label>Hearing (minutes)</label>
-  <input type="number" id="hearing">
+    <label>Reading (minutes)</label>
+    <input type="number" id="reading">
 
-  <label>Day Sleep (minutes)</label>
-  <input type="number" id="daySleep">
+    <label>Hearing (minutes)</label>
+    <input type="number" id="hearing">
 
-  <button onclick="submitSadhana()">Submit</button>
-  <button onclick="logout()">Logout</button>
+    <label>Day Sleep (minutes)</label>
+    <input type="number" id="daySleep">
+
+    <button onclick="submitSadhana()">Submit Sadhana</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- SCORES TAB (PLACEHOLDER ONLY) -->
+  <div id="scoresTab" style="display:none;">
+    <div class="placeholder">
+      Scores will appear here 🙏
+    </div>
+  </div>
 </div>
 
 <script>
@@ -99,11 +138,11 @@
     if (user) {
       uid = user.uid;
       authCard.style.display = "none";
-      sadhanaCard.style.display = "block";
+      appCard.style.display = "block";
       setupDates();
     } else {
       authCard.style.display = "block";
-      sadhanaCard.style.display = "none";
+      appCard.style.display = "none";
     }
   });
 
@@ -119,6 +158,13 @@
       opt.text = v;
       dateSelect.appendChild(opt);
     }
+  }
+
+  function showTab(tab) {
+    sadhanaTab.style.display = tab === "sadhana" ? "block" : "none";
+    scoresTab.style.display = tab === "scores" ? "block" : "none";
+    tabSadhana.classList.toggle("active", tab === "sadhana");
+    tabScores.classList.toggle("active", tab === "scores");
   }
 
   function login() {
