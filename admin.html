@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sadhana Tracker – Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000080;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      width: 95%;
+      max-width: 700px;
+    }
+    .card {
+      background: #fff;
+      color: #000080;
+      padding: 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    h3 { margin-top: 0; text-align: center; }
+
+    .user-row {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+      cursor: pointer;
+    }
+    .user-row:hover {
+      background: #f0f0f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px;
+      text-align: center;
+    }
+
+    button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 8px;
+      background: #000080;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .error {
+      color: #b00000;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="card" id="loading">Checking admin access…</div>
+
+  <div class="card" id="denied" style="display:none;">
+    <h3>Access Denied</h3>
+    <p style="text-align:center;">You are not authorized to view this page.</p>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div id="adminApp" style="display:none;">
+
+    <div class="card">
+      <h3>Admin – Users</h3>
+      <div id="userList"></div>
+      <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="card" id="reportsCard" style="display:none;">
+      <h3 id="userTitle"></h3>
+      <div id="reports"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  const SUPER_ADMIN_EMAIL = "riyagupta9872@gmail.com";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+    projectId: "sadhana-tracker-b65ff",
+    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const loading = document.getElementById("loading");
+  const denied = document.getElementById("denied");
+  const adminApp = document.getElementById("adminApp");
+
+  auth.onAuthStateChanged(async user => {
+    loading.style.display = "none";
+
+    if (!user || user.email !== SUPER_ADMIN_EMAIL) {
+      denied.style.display = "block";
+      return;
+    }
+
+    adminApp.style.display = "block";
+    loadUsers();
+  });
+
+  async function loadUsers() {
+    const snap = await db.collection("users").get();
+    const list = document.getElementById("userList");
+    list.innerHTML = "";
+
+    snap.forEach(doc => {
+      const d = doc.data();
+      const row = document.createElement("div");
+      row.className = "user-row";
+      row.innerHTML = `<b>${d.name || "No Name"}</b><br>
+        ${d.email || doc.id}<br>
+        Category: ${d.chantingCategory || "-"}`;
+      row.onclick = () => loadReports(doc.id, d.name);
+      list.appendChild(row);
+    });
+  }
+
+  async function loadReports(uid, name) {
+    document.getElementById("reportsCard").style.display = "block";
+    document.getElementById("userTitle").innerText = name + " – Reports";
+
+    const snap = await db.collection("users").doc(uid)
+      .collection("sadhana").get();
+
+    if (snap.empty) {
+      document.getElementById("reports").innerText = "No sadhana data";
+      return;
+    }
+
+    const byWeek = {};
+    snap.forEach(doc => {
+      const d = new Date(doc.id);
+      const sun = new Date(d);
+      sun.setDate(d.getDate() - d.getDay());
+      const key = sun.toISOString().slice(0,10);
+      byWeek[key] = byWeek[key] || [];
+      byWeek[key].push({ date: doc.id, ...doc.data() });
+    });
+
+    const weeks = Object.keys(byWeek).sort().reverse();
+    let html = "";
+
+    weeks.forEach(w => {
+      html += `<h4>Week starting ${w}</h4>`;
+      html += `<table>
+        <tr>
+          <th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th>
+          <th>Read</th><th>Hear</th><th>Day Sleep</th>
+        </tr>`;
+      byWeek[w].forEach(r => {
+        html += `<tr>
+          <td>${r.date}</td>
+          <td>${r.sleepTime}</td>
+          <td>${r.wakeTime}</td>
+          <td>${r.chantingTime}</td>
+          <td>${r.reading}</td>
+          <td>${r.hearing}</td>
+          <td>${r.daySleep}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+    });
+
+    document.getElementById("reports").innerHTML = html;
+  }
+
+  function logout() {
+    auth.signOut();
+    location.reload();
+  }
+</script>
+
+</body>
+</html>
