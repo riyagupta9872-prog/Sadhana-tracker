@@ -20,29 +20,40 @@
     }
     .container {
       width: 95%;
-      max-width: 520px;
+      max-width: 480px;
     }
     .card {
       background: white;
-      color: #000080;
       padding: 16px;
       border-radius: 10px;
       margin-bottom: 10px;
+      color: #000080;
     }
     h3 { text-align: center; margin-top: 0; }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin-top: 8px;
+    }
+    button {
+      background: #000080;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .error { color: red; text-align: center; }
+    .success { color: green; text-align: center; }
 
     .tabs {
       display: flex;
-      border-radius: 10px;
-      overflow: hidden;
       margin-bottom: 10px;
     }
     .tab {
       flex: 1;
-      padding: 10px;
       text-align: center;
+      padding: 10px;
+      background: #ddd;
       cursor: pointer;
-      background: #e6e6e6;
       font-weight: bold;
     }
     .tab.active {
@@ -50,38 +61,15 @@
       color: white;
     }
 
-    label { display:block; margin-top:8px; }
-    input, select {
-      width:100%;
-      padding:6px;
-      margin-top:4px;
-    }
-    button {
-      width:100%;
-      margin-top:10px;
-      padding:8px;
-      background:#000080;
-      color:white;
-      border:none;
-      cursor:pointer;
-    }
-    .error { color:#b00000; text-align:center; }
-    .success { color:green; text-align:center; }
-
     table {
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
     }
     th, td {
-      border:1px solid #ccc;
-      padding:4px;
-      text-align:center;
-    }
-    .week-header {
-      margin-top:8px;
-      font-weight:bold;
-      cursor:pointer;
+      border: 1px solid #ccc;
+      padding: 4px;
+      text-align: center;
     }
   </style>
 </head>
@@ -94,49 +82,45 @@
   <div class="card" id="login" style="display:none;">
     <h3>Login</h3>
     <input id="email" placeholder="Email">
-    <input id="password" type="password">
+    <input id="password" type="password" placeholder="Password">
     <button onclick="login()">Login</button>
-    <p id="loginError" class="error"></p>
+    <div id="loginError" class="error"></div>
   </div>
 
   <div class="card" id="profile" style="display:none;">
     <h3>Profile Setup</h3>
-    <label>Name</label>
-    <input id="name">
-    <label>Chanting Category</label>
+    <input id="name" placeholder="Name">
     <select id="category">
-      <option value="">Select</option>
+      <option value="">Chanting Category</option>
       <option value="0-4">0–4</option>
       <option value="5-9">5–9</option>
       <option value="10-16">10–16</option>
     </select>
     <button onclick="saveProfile()">Save</button>
-    <p id="profileError" class="error"></p>
+    <div id="profileError" class="error"></div>
   </div>
 
   <div id="app" style="display:none;">
 
     <div class="tabs">
-      <div class="tab active" onclick="showTab('sadhana')">Sadhana</div>
-      <div class="tab" onclick="showTab('reports')">Reports</div>
+      <div class="tab active" onclick="showTab('sadhana', this)">Sadhana</div>
+      <div class="tab" onclick="showTab('reports', this)">Reports</div>
     </div>
 
     <div class="card" id="sadhanaTab">
       <h3>Daily Sadhana</h3>
 
-      <label>Date</label>
       <select id="date"></select>
-
-      <label>Sleep Time</label><input type="time" id="sleep">
-      <label>Wake Time</label><input type="time" id="wake">
-      <label>Chanting Time</label><input type="time" id="chant">
-      <label>Reading (min)</label><input type="number" id="read">
-      <label>Hearing (min)</label><input type="number" id="hear">
-      <label>Day Sleep (min)</label><input type="number" id="daysleep">
+      <input type="time" id="sleep">
+      <input type="time" id="wake">
+      <input type="time" id="chant">
+      <input type="number" id="read" placeholder="Reading (min)">
+      <input type="number" id="hear" placeholder="Hearing (min)">
+      <input type="number" id="daysleep" placeholder="Day Sleep (min)">
 
       <button onclick="submitSadhana()">Submit</button>
-      <p id="sError" class="error"></p>
-      <p id="sSuccess" class="success"></p>
+      <div id="sError" class="error"></div>
+      <div id="sSuccess" class="success"></div>
       <button onclick="logout()">Logout</button>
     </div>
 
@@ -159,7 +143,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-
 let uid;
 
 auth.onAuthStateChanged(async user => {
@@ -168,15 +151,18 @@ auth.onAuthStateChanged(async user => {
     login.style.display = "block";
     return;
   }
-
   uid = user.uid;
-  const doc = await db.collection("users").doc(uid).get();
-  if (!doc.exists || !doc.data().name) {
+  try {
+    const doc = await db.collection("users").doc(uid).get();
+    if (!doc.exists) {
+      profile.style.display = "block";
+    } else {
+      app.style.display = "block";
+      initDates();
+      loadReports();
+    }
+  } catch {
     profile.style.display = "block";
-  } else {
-    app.style.display = "block";
-    initDates();
-    loadReports();
   }
 });
 
@@ -205,16 +191,16 @@ function initDates() {
   for (let i = 0; i < 3; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const opt = document.createElement("option");
-    opt.value = d.toISOString().slice(0,10);
-    opt.textContent = opt.value;
-    date.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = d.toISOString().slice(0,10);
+    o.textContent = o.value;
+    date.appendChild(o);
   }
 }
 
 function submitSadhana() {
-  const fields = [sleep,wake,chant,read,hear,daysleep];
-  if (fields.some(f => f.value === "")) {
+  const f = [sleep,wake,chant,read,hear,daysleep];
+  if (f.some(x => !x.value)) {
     sError.innerText = "All fields compulsory";
     return;
   }
@@ -228,9 +214,9 @@ function submitSadhana() {
       hear:hear.value,
       daysleep:daysleep.value
     }).then(() => {
-      sSuccess.innerText = "Sadhana submitted 🙏";
+      sSuccess.innerText = "Saved 🙏";
       sError.innerText = "";
-      fields.forEach(f => f.value="");
+      f.forEach(x => x.value="");
       loadReports();
     });
 }
@@ -238,22 +224,23 @@ function submitSadhana() {
 function loadReports() {
   db.collection("users").doc(uid).collection("sadhana").get()
     .then(snap => {
-      let html = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th></tr>";
+      let h = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th></tr>";
       snap.forEach(d => {
         const r = d.data();
-        html += `<tr><td>${d.id}</td><td>${r.sleep}</td><td>${r.wake}</td><td>${r.chant}</td></tr>`;
+        h += `<tr><td>${d.id}</td><td>${r.sleep}</td><td>${r.wake}</td><td>${r.chant}</td></tr>`;
       });
-      html += "</table>";
-      reports.innerHTML = html;
+      h += "</table>";
+      reports.innerHTML = h;
     });
 }
 
-function showTab(tab) {
+function showTab(tab, el) {
   sadhanaTab.style.display = tab==="sadhana"?"block":"none";
   reportsTab.style.display = tab==="reports"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  event.target.classList.add("active");
+  el.classList.add("active");
 }
 </script>
+
 </body>
 </html>
