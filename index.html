@@ -23,7 +23,7 @@
       padding: 16px;
       border-radius: 10px;
       width: 95%;
-      max-width: 480px;
+      max-width: 520px;
       color: #000080;
     }
     h3 { text-align: center; margin: 8px 0; }
@@ -77,6 +77,11 @@
       font-weight: bold;
       cursor: pointer;
     }
+    .user-row {
+      padding: 6px;
+      border-bottom: 1px solid #ddd;
+      cursor: pointer;
+    }
   </style>
 </head>
 
@@ -107,40 +112,44 @@
 </div>
 
 <div class="card" id="app" style="display:none;">
-  <div class="tabs">
-    <div class="tab active" onclick="showTab('sadhana')">Sadhana</div>
-    <div class="tab" onclick="showTab('reports')">Reports</div>
-  </div>
+  <div class="tabs" id="tabs"></div>
 
-  <!-- SADHANA TAB -->
+  <!-- SADHANA -->
   <div id="sadhanaTab">
     <label>Date</label>
     <select id="date"></select>
-
     <label>Sleep</label><input type="time" id="sleep">
     <label>Wake</label><input type="time" id="wake">
     <label>Chanting</label><input type="time" id="chant">
     <label>Reading (min)</label><input type="number" id="read">
     <label>Hearing (min)</label><input type="number" id="hear">
     <label>Day Sleep (min)</label><input type="number" id="daysleep">
-
     <button onclick="submitSadhana()">Submit Sadhana</button>
     <div id="msgSuccess" class="success"></div>
     <div id="msgError" class="error"></div>
     <button onclick="logoutUser()">Logout</button>
   </div>
 
-  <!-- REPORTS TAB -->
+  <!-- REPORTS -->
   <div id="reportsTab" style="display:none;">
     <h3>Current Week</h3>
     <div id="currentWeek"></div>
-
     <h3>Previous Weeks</h3>
     <div id="previousWeeks"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="adminTab" style="display:none;">
+    <h3>Users</h3>
+    <div id="userList"></div>
+    <h3 id="adminUserTitle"></h3>
+    <div id="adminUserReports"></div>
   </div>
 </div>
 
 <script>
+  const ADMIN_EMAIL = "riyagupta9872@gmail.com";
+
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -151,25 +160,45 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
-  let uid;
+  let uid, isAdmin=false;
 
   auth.onAuthStateChanged(async user => {
-    loading.style.display = "none";
-    if (!user) { login.style.display="block"; return; }
+    loading.style.display="none";
+    if(!user){ login.style.display="block"; return; }
 
-    uid = user.uid;
+    uid=user.uid;
+    isAdmin = user.email === ADMIN_EMAIL;
+
     const doc = await db.collection("users").doc(uid).get();
-    if (!doc.exists || !doc.data().name || !doc.data().chantingCategory) {
+    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
       profile.style.display="block"; return;
     }
+
     app.style.display="block";
+    setupTabs();
     setupDates();
-    loadReports();
+    loadReports(uid);
+    if(isAdmin) loadUsers();
   });
 
+  function setupTabs(){
+    tabs.innerHTML="";
+    const baseTabs=["Sadhana","Reports"];
+    if(isAdmin) baseTabs.push("Admin");
+    baseTabs.forEach((t,i)=>{
+      const d=document.createElement("div");
+      d.className="tab"+(i===0?" active":"");
+      d.innerText=t;
+      d.onclick=()=>showTab(t.toLowerCase());
+      tabs.appendChild(d);
+    });
+  }
+
   function showTab(tab){
-    document.getElementById("sadhanaTab").style.display = tab==="sadhana"?"block":"none";
-    document.getElementById("reportsTab").style.display = tab==="reports"?"block":"none";
+    ["sadhana","reports","admin"].forEach(t=>{
+      const el=document.getElementById(t+"Tab");
+      if(el) el.style.display=(t===tab?"block":"none");
+    });
     document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
     event.target.classList.add("active");
   }
@@ -183,10 +212,13 @@
     }
   }
 
-  async function loadReports(){
-    const snap = await db.collection("users").doc(uid).collection("sadhana").get();
-    const byWeek={};
+  async function loadReports(userId){
+    const snap = await db.collection("users").doc(userId).collection("sadhana").get();
+    renderReports(snap, currentWeek, previousWeeks);
+  }
 
+  function renderReports(snap, currentEl, prevEl){
+    const byWeek={};
     snap.forEach(doc=>{
       const dt=new Date(doc.id);
       const sunday=new Date(dt); sunday.setDate(dt.getDate()-dt.getDay());
@@ -194,30 +226,47 @@
       byWeek[key]=byWeek[key]||[];
       byWeek[key].push({date:doc.id,...doc.data()});
     });
-
     const weeks=Object.keys(byWeek).sort().reverse();
-    renderTable(currentWeek, byWeek[weeks[0]]||[]);
-
-    previousWeeks.innerHTML="";
+    renderTable(currentEl, byWeek[weeks[0]]||[]);
+    prevEl.innerHTML="";
     weeks.slice(1).forEach(w=>{
       const div=document.createElement("div");
       div.innerHTML=`<div class="week-header">${w}</div><div style="display:none"></div>`;
-      div.children[0].onclick=()=> {
+      div.children[0].onclick=()=>{
         const c=div.children[1];
         c.style.display=c.style.display==="none"?"block":"none";
         renderTable(c, byWeek[w]);
       };
-      previousWeeks.appendChild(div);
+      prevEl.appendChild(div);
     });
   }
 
-  function renderTable(el, data){
+  function renderTable(el,data){
     if(!data.length){ el.innerHTML="No data"; return; }
     let h="<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Day Sleep</th></tr>";
     data.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
       h+=`<tr><td>${r.date}</td><td>${r.sleepTime}</td><td>${r.wakeTime}</td><td>${r.chantingTime}</td><td>${r.reading}</td><td>${r.hearing}</td><td>${r.daySleep}</td></tr>`;
     });
     el.innerHTML=h+"</table>";
+  }
+
+  async function loadUsers(){
+    const snap=await db.collection("users").get();
+    userList.innerHTML="";
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const row=document.createElement("div");
+      row.className="user-row";
+      row.innerText=`${d.name} (${d.chantingCategory||"-"})`;
+      row.onclick=()=>viewUser(doc.id,d.name);
+      userList.appendChild(row);
+    });
+  }
+
+  async function viewUser(userId,name){
+    adminUserTitle.innerText=name+"'s Reports";
+    const snap=await db.collection("users").doc(userId).collection("sadhana").get();
+    renderReports(snap, adminUserReports, document.createElement("div"));
   }
 
   function loginUser(){ auth.signInWithEmailAndPassword(email.value,password.value); }
@@ -251,7 +300,7 @@
       });
     msgSuccess.innerText="Sadhana submitted successfully 🙏";
     vals.forEach(v=>v.value="");
-    loadReports();
+    loadReports(uid);
   }
 </script>
 
