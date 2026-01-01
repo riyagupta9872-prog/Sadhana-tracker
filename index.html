@@ -114,7 +114,6 @@
 <div class="card" id="app" style="display:none;">
   <div class="tabs" id="tabs"></div>
 
-  <!-- SADHANA -->
   <div id="sadhanaTab">
     <label>Date</label>
     <select id="date"></select>
@@ -130,7 +129,6 @@
     <button onclick="logoutUser()">Logout</button>
   </div>
 
-  <!-- REPORTS -->
   <div id="reportsTab" style="display:none;">
     <h3>Current Week</h3>
     <div id="currentWeek"></div>
@@ -138,7 +136,6 @@
     <div id="previousWeeks"></div>
   </div>
 
-  <!-- ADMIN -->
   <div id="adminTab" style="display:none;">
     <h3>Users</h3>
     <div id="userList"></div>
@@ -160,147 +157,179 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
-  let uid, isAdmin=false;
+
+  let uid, isAdmin = false;
+
+  function hideAllScreens() {
+    loading.style.display = "none";
+    login.style.display = "none";
+    profile.style.display = "none";
+    app.style.display = "none";
+  }
 
   auth.onAuthStateChanged(async user => {
-    loading.style.display="none";
-    if(!user){ login.style.display="block"; return; }
+    hideAllScreens();
 
-    uid=user.uid;
+    if (!user) {
+      login.style.display = "block";
+      return;
+    }
+
+    uid = user.uid;
     isAdmin = user.email === ADMIN_EMAIL;
 
     const doc = await db.collection("users").doc(uid).get();
-    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
-      profile.style.display="block"; return;
+
+    if (!doc.exists || !doc.data().name || !doc.data().chantingCategory) {
+      profile.style.display = "block";
+      return;
     }
 
-    app.style.display="block";
+    app.style.display = "block";
     setupTabs();
     setupDates();
     loadReports(uid);
-    if(isAdmin) loadUsers();
+    if (isAdmin) loadUsers();
   });
 
-  function setupTabs(){
-    tabs.innerHTML="";
-    const baseTabs=["Sadhana","Reports"];
-    if(isAdmin) baseTabs.push("Admin");
-    baseTabs.forEach((t,i)=>{
-      const d=document.createElement("div");
-      d.className="tab"+(i===0?" active":"");
-      d.innerText=t;
-      d.onclick=()=>showTab(t.toLowerCase());
+  function setupTabs() {
+    tabs.innerHTML = "";
+    const tabNames = ["Sadhana", "Reports"];
+    if (isAdmin) tabNames.push("Admin");
+
+    tabNames.forEach((name, i) => {
+      const d = document.createElement("div");
+      d.className = "tab" + (i === 0 ? " active" : "");
+      d.innerText = name;
+      d.onclick = () => showTab(name.toLowerCase());
       tabs.appendChild(d);
     });
+
+    showTab("sadhana");
   }
 
-  function showTab(tab){
-    ["sadhana","reports","admin"].forEach(t=>{
-      const el=document.getElementById(t+"Tab");
-      if(el) el.style.display=(t===tab?"block":"none");
-    });
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  function showTab(tab) {
+    sadhanaTab.style.display = tab === "sadhana" ? "block" : "none";
+    reportsTab.style.display = tab === "reports" ? "block" : "none";
+    adminTab.style.display = tab === "admin" ? "block" : "none";
+
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     event.target.classList.add("active");
   }
 
-  function setupDates(){
-    date.innerHTML="";
-    const t=new Date();
-    for(let i=0;i<3;i++){
-      const d=new Date(t); d.setDate(t.getDate()-i);
-      date.innerHTML+=`<option>${d.toISOString().slice(0,10)}</option>`;
+  function setupDates() {
+    date.innerHTML = "";
+    const today = new Date();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      date.innerHTML += `<option>${d.toISOString().slice(0,10)}</option>`;
     }
   }
 
-  async function loadReports(userId){
+  async function submitSadhana() {
+    const fields = [sleep, wake, chant, read, hear, daysleep];
+    if (fields.some(f => f.value === "")) {
+      msgError.innerText = "All fields compulsory";
+      return;
+    }
+
+    await db.collection("users").doc(uid)
+      .collection("sadhana").doc(date.value)
+      .set({
+        sleepTime: sleep.value,
+        wakeTime: wake.value,
+        chantingTime: chant.value,
+        reading: read.value,
+        hearing: hear.value,
+        daySleep: daysleep.value
+      });
+
+    msgSuccess.innerText = "Sadhana submitted successfully 🙏";
+    fields.forEach(f => f.value = "");
+    loadReports(uid);
+  }
+
+  async function loadReports(userId) {
     const snap = await db.collection("users").doc(userId).collection("sadhana").get();
     renderReports(snap, currentWeek, previousWeeks);
   }
 
-  function renderReports(snap, currentEl, prevEl){
-    const byWeek={};
-    snap.forEach(doc=>{
-      const dt=new Date(doc.id);
-      const sunday=new Date(dt); sunday.setDate(dt.getDate()-dt.getDay());
-      const key=sunday.toISOString().slice(0,10);
-      byWeek[key]=byWeek[key]||[];
-      byWeek[key].push({date:doc.id,...doc.data()});
+  function renderReports(snap, currentEl, prevEl) {
+    const byWeek = {};
+    snap.forEach(doc => {
+      const dt = new Date(doc.id);
+      const sunday = new Date(dt);
+      sunday.setDate(dt.getDate() - dt.getDay());
+      const key = sunday.toISOString().slice(0,10);
+      byWeek[key] = byWeek[key] || [];
+      byWeek[key].push({ date: doc.id, ...doc.data() });
     });
-    const weeks=Object.keys(byWeek).sort().reverse();
-    renderTable(currentEl, byWeek[weeks[0]]||[]);
-    prevEl.innerHTML="";
-    weeks.slice(1).forEach(w=>{
-      const div=document.createElement("div");
-      div.innerHTML=`<div class="week-header">${w}</div><div style="display:none"></div>`;
-      div.children[0].onclick=()=>{
-        const c=div.children[1];
-        c.style.display=c.style.display==="none"?"block":"none";
+
+    const weeks = Object.keys(byWeek).sort().reverse();
+    renderTable(currentEl, byWeek[weeks[0]] || []);
+    prevEl.innerHTML = "";
+
+    weeks.slice(1).forEach(w => {
+      const div = document.createElement("div");
+      div.innerHTML = `<div class="week-header">${w}</div><div style="display:none"></div>`;
+      div.children[0].onclick = () => {
+        const c = div.children[1];
+        c.style.display = c.style.display === "none" ? "block" : "none";
         renderTable(c, byWeek[w]);
       };
       prevEl.appendChild(div);
     });
   }
 
-  function renderTable(el,data){
-    if(!data.length){ el.innerHTML="No data"; return; }
-    let h="<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Day Sleep</th></tr>";
-    data.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
-      h+=`<tr><td>${r.date}</td><td>${r.sleepTime}</td><td>${r.wakeTime}</td><td>${r.chantingTime}</td><td>${r.reading}</td><td>${r.hearing}</td><td>${r.daySleep}</td></tr>`;
+  function renderTable(el, data) {
+    if (!data.length) { el.innerHTML = "No data"; return; }
+    let html = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Day Sleep</th></tr>";
+    data.sort((a,b) => a.date.localeCompare(b.date)).forEach(r => {
+      html += `<tr><td>${r.date}</td><td>${r.sleepTime}</td><td>${r.wakeTime}</td><td>${r.chantingTime}</td><td>${r.reading}</td><td>${r.hearing}</td><td>${r.daySleep}</td></tr>`;
     });
-    el.innerHTML=h+"</table>";
+    el.innerHTML = html + "</table>";
   }
 
-  async function loadUsers(){
-    const snap=await db.collection("users").get();
-    userList.innerHTML="";
-    snap.forEach(doc=>{
-      const d=doc.data();
-      const row=document.createElement("div");
-      row.className="user-row";
-      row.innerText=`${d.name} (${d.chantingCategory||"-"})`;
-      row.onclick=()=>viewUser(doc.id,d.name);
+  async function loadUsers() {
+    const snap = await db.collection("users").get();
+    userList.innerHTML = "";
+    snap.forEach(doc => {
+      const d = doc.data();
+      const row = document.createElement("div");
+      row.className = "user-row";
+      row.innerText = `${d.name} (${d.chantingCategory || "-"})`;
+      row.onclick = () => viewUser(doc.id, d.name);
       userList.appendChild(row);
     });
   }
 
-  async function viewUser(userId,name){
-    adminUserTitle.innerText=name+"'s Reports";
-    const snap=await db.collection("users").doc(userId).collection("sadhana").get();
+  async function viewUser(userId, name) {
+    adminUserTitle.innerText = name + "'s Reports";
+    const snap = await db.collection("users").doc(userId).collection("sadhana").get();
     renderReports(snap, adminUserReports, document.createElement("div"));
   }
 
-  function loginUser(){ auth.signInWithEmailAndPassword(email.value,password.value); }
-  function logoutUser(){ auth.signOut(); }
+  function loginUser() {
+    auth.signInWithEmailAndPassword(email.value, password.value);
+  }
 
-  async function saveProfile(){
-    if(!profileName.value||!profileCategory.value){
-      profileError.innerText="All fields mandatory"; return;
+  function logoutUser() {
+    auth.signOut();
+  }
+
+  async function saveProfile() {
+    if (!profileName.value || !profileCategory.value) {
+      profileError.innerText = "All fields mandatory";
+      return;
     }
+
     await db.collection("users").doc(uid).set({
       name: profileName.value,
       chantingCategory: profileCategory.value
-    },{merge:true});
-    location.reload();
-  }
+    }, { merge: true });
 
-  async function submitSadhana(){
-    const vals=[sleep,wake,chant,read,hear,daysleep];
-    if(vals.some(v=>v.value==="")){
-      msgError.innerText="All fields compulsory"; return;
-    }
-    await db.collection("users").doc(uid)
-      .collection("sadhana").doc(date.value)
-      .set({
-        sleepTime:sleep.value,
-        wakeTime:wake.value,
-        chantingTime:chant.value,
-        reading:read.value,
-        hearing:hear.value,
-        daySleep:daysleep.value
-      });
-    msgSuccess.innerText="Sadhana submitted successfully 🙏";
-    vals.forEach(v=>v.value="");
-    loadReports(uid);
+    location.reload();
   }
 </script>
 
