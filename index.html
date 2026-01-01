@@ -59,25 +59,29 @@
       border: none;
       cursor: pointer;
     }
-
-    .placeholder {
+    .center {
       text-align: center;
       padding: 30px 10px;
-      font-size: 14px;
-      color: #444;
     }
   </style>
 </head>
 
 <body>
 
-<div class="card" id="authCard">
+<!-- LOADING -->
+<div class="card" id="loadingCard">
+  <div class="center">Checking session…</div>
+</div>
+
+<!-- LOGIN -->
+<div class="card" id="authCard" style="display:none;">
   <h3>Login</h3>
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
 </div>
 
+<!-- APP -->
 <div class="card" id="appCard" style="display:none;">
   <h3>Sadhana Tracker</h3>
 
@@ -86,7 +90,7 @@
     <div class="tab" id="tabScores" onclick="showTab('scores')">Scores</div>
   </div>
 
-  <!-- SADHANA TAB -->
+  <!-- SADHANA -->
   <div id="sadhanaTab">
     <label>Date</label>
     <select id="dateSelect"></select>
@@ -113,11 +117,9 @@
     <button onclick="logout()">Logout</button>
   </div>
 
-  <!-- SCORES TAB (PLACEHOLDER ONLY) -->
+  <!-- SCORES (PLACEHOLDER) -->
   <div id="scoresTab" style="display:none;">
-    <div class="placeholder">
-      Scores will appear here 🙏
-    </div>
+    <div class="center">Scores will appear here 🙏</div>
   </div>
 </div>
 
@@ -135,6 +137,7 @@
   let uid = null;
 
   auth.onAuthStateChanged(user => {
+    loadingCard.style.display = "none";
     if (user) {
       uid = user.uid;
       authCard.style.display = "none";
