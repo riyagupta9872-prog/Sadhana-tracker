@@ -4,7 +4,6 @@
   <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -14,47 +13,36 @@
       margin: 0;
       font-family: Arial, sans-serif;
       background: #000080;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
     }
     .container {
       width: 95%;
-      max-width: 480px;
+      max-width: 520px;
     }
     .card {
       background: white;
+      color: #000080;
       padding: 16px;
       border-radius: 10px;
       margin-bottom: 10px;
-      color: #000080;
     }
-    h3 { text-align: center; margin: 0 0 10px; }
-
-    .topbar {
-      background: #000080;
-      color: white;
-      padding: 10px;
-      border-radius: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
+    h3 { text-align: center; margin-top: 0; }
 
     .tabs {
       display: flex;
-      margin-bottom: 10px;
       border-radius: 10px;
       overflow: hidden;
+      margin-bottom: 10px;
     }
     .tab {
       flex: 1;
-      text-align: center;
       padding: 10px;
-      background: #e6e6e6;
+      text-align: center;
       cursor: pointer;
+      background: #e6e6e6;
       font-weight: bold;
     }
     .tab.active {
@@ -62,39 +50,38 @@
       color: white;
     }
 
-    label { display: block; margin-top: 8px; }
+    label { display:block; margin-top:8px; }
     input, select {
-      width: 100%;
-      padding: 7px;
-      margin-top: 4px;
+      width:100%;
+      padding:6px;
+      margin-top:4px;
     }
     button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 8px;
-      background: #000080;
-      color: white;
-      border: none;
-      cursor: pointer;
+      width:100%;
+      margin-top:10px;
+      padding:8px;
+      background:#000080;
+      color:white;
+      border:none;
+      cursor:pointer;
     }
-
-    .error { color: #b00000; text-align: center; }
-    .success { color: green; text-align: center; }
+    .error { color:#b00000; text-align:center; }
+    .success { color:green; text-align:center; }
 
     table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 4px;
-      text-align: center;
+      border:1px solid #ccc;
+      padding:4px;
+      text-align:center;
     }
-    .week-title {
-      font-weight: bold;
-      margin-top: 10px;
-      cursor: pointer;
+    .week-header {
+      margin-top:8px;
+      font-weight:bold;
+      cursor:pointer;
     }
   </style>
 </head>
@@ -102,51 +89,40 @@
 <body>
 <div class="container">
 
-  <!-- LOADING -->
   <div class="card" id="loading">Checking session…</div>
 
-  <!-- LOGIN -->
   <div class="card" id="login" style="display:none;">
     <h3>Login</h3>
     <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
+    <input id="password" type="password">
     <button onclick="login()">Login</button>
-    <div class="error" id="loginError"></div>
+    <p id="loginError" class="error"></p>
   </div>
 
-  <!-- PROFILE SETUP -->
-  <div class="card" id="profileSetup" style="display:none;">
+  <div class="card" id="profile" style="display:none;">
     <h3>Profile Setup</h3>
     <label>Name</label>
-    <input id="profileName">
+    <input id="name">
     <label>Chanting Category</label>
-    <select id="profileCategory">
+    <select id="category">
       <option value="">Select</option>
       <option value="0-4">0–4</option>
       <option value="5-9">5–9</option>
       <option value="10-16">10–16</option>
     </select>
-    <button onclick="saveProfile()">Save Profile</button>
-    <div class="error" id="profileError"></div>
+    <button onclick="saveProfile()">Save</button>
+    <p id="profileError" class="error"></p>
   </div>
 
-  <!-- APP -->
   <div id="app" style="display:none;">
 
-    <div class="topbar">
-      <div id="welcome"></div>
-      <button onclick="logout()">Logout</button>
-    </div>
-
     <div class="tabs">
-      <div class="tab active" id="tabSadhana">Sadhana</div>
-      <div class="tab" id="tabReports">Reports</div>
-      <div class="tab" id="tabProfile">Profile</div>
+      <div class="tab active" onclick="showTab('sadhana')">Sadhana</div>
+      <div class="tab" onclick="showTab('reports')">Reports</div>
     </div>
 
-    <!-- SADHANA -->
-    <div class="card" id="sadhana">
-      <h3>Today’s Sadhana</h3>
+    <div class="card" id="sadhanaTab">
+      <h3>Daily Sadhana</h3>
 
       <label>Date</label>
       <select id="date"></select>
@@ -159,30 +135,14 @@
       <label>Day Sleep (min)</label><input type="number" id="daysleep">
 
       <button onclick="submitSadhana()">Submit</button>
-      <div class="error" id="sError"></div>
-      <div class="success" id="sSuccess"></div>
+      <p id="sError" class="error"></p>
+      <p id="sSuccess" class="success"></p>
+      <button onclick="logout()">Logout</button>
     </div>
 
-    <!-- REPORTS -->
-    <div class="card" id="reports" style="display:none;">
-      <h3>Current Week</h3>
-      <div id="currentWeek"></div>
-      <h3>Previous Weeks</h3>
-      <div id="previousWeeks"></div>
-    </div>
-
-    <!-- PROFILE -->
-    <div class="card" id="profile" style="display:none;">
-      <h3>Profile</h3>
-      <label>Name</label>
-      <input id="editName">
-      <label>Chanting Category</label>
-      <select id="editCategory">
-        <option value="0-4">0–4</option>
-        <option value="5-9">5–9</option>
-        <option value="10-16">10–16</option>
-      </select>
-      <button onclick="updateProfile()">Update</button>
+    <div class="card" id="reportsTab" style="display:none;">
+      <h3>Reports</h3>
+      <div id="reports"></div>
     </div>
 
   </div>
@@ -192,108 +152,107 @@
 const firebaseConfig = {
   apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
   authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-  projectId: "sadhana-tracker-b65ff"
+  projectId: "sadhana-tracker-b65ff",
+  appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
 };
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+
 let uid;
 
-function hideAll() {
-  loading.style.display = login.style.display = profileSetup.style.display = app.style.display = "none";
-}
-
 auth.onAuthStateChanged(async user => {
-  hideAll();
-  if (!user) { login.style.display = "block"; return; }
+  loading.style.display = "none";
+  if (!user) {
+    login.style.display = "block";
+    return;
+  }
+
   uid = user.uid;
   const doc = await db.collection("users").doc(uid).get();
   if (!doc.exists || !doc.data().name) {
-    profileSetup.style.display = "block"; return;
+    profile.style.display = "block";
+  } else {
+    app.style.display = "block";
+    initDates();
+    loadReports();
   }
-  welcome.innerText = "Welcome, " + doc.data().name;
-  editName.value = doc.data().name;
-  editCategory.value = doc.data().chantingCategory;
-  app.style.display = "block";
-  initDates();
-  loadReports();
 });
-
-function initDates() {
-  date.innerHTML = "";
-  const today = new Date();
-  for (let i = 0; i < 3; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const v = d.toISOString().slice(0,10);
-    const o = document.createElement("option");
-    o.value = v; o.textContent = v;
-    date.appendChild(o);
-  }
-}
 
 function login() {
   auth.signInWithEmailAndPassword(email.value, password.value)
     .catch(e => loginError.innerText = e.message);
 }
 
-function logout() { auth.signOut(); }
-
-function saveProfile() {
-  if (!profileName.value || !profileCategory.value) {
-    profileError.innerText = "All fields required"; return;
-  }
-  db.collection("users").doc(uid).set({
-    name: profileName.value,
-    chantingCategory: profileCategory.value
-  });
+function logout() {
+  auth.signOut();
 }
 
-function updateProfile() {
-  db.collection("users").doc(uid).update({
-    name: editName.value,
-    chantingCategory: editCategory.value
-  });
+function saveProfile() {
+  if (!name.value || !category.value) {
+    profileError.innerText = "All fields required";
+    return;
+  }
+  db.collection("users").doc(uid).set({
+    name: name.value,
+    chantingCategory: category.value
+  }).then(() => location.reload());
+}
+
+function initDates() {
+  date.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const opt = document.createElement("option");
+    opt.value = d.toISOString().slice(0,10);
+    opt.textContent = opt.value;
+    date.appendChild(opt);
+  }
 }
 
 function submitSadhana() {
-  const fields = [sleep, wake, chant, read, hear, daysleep];
-  if (fields.some(f => !f.value)) {
-    sError.innerText = "All fields compulsory"; return;
+  const fields = [sleep,wake,chant,read,hear,daysleep];
+  if (fields.some(f => f.value === "")) {
+    sError.innerText = "All fields compulsory";
+    return;
   }
   db.collection("users").doc(uid)
     .collection("sadhana").doc(date.value)
     .set({
-      sleep: sleep.value, wake: wake.value, chant: chant.value,
-      read: read.value, hear: hear.value, daysleep: daysleep.value
+      sleep:sleep.value,
+      wake:wake.value,
+      chant:chant.value,
+      read:read.value,
+      hear:hear.value,
+      daysleep:daysleep.value
+    }).then(() => {
+      sSuccess.innerText = "Sadhana submitted 🙏";
+      sError.innerText = "";
+      fields.forEach(f => f.value="");
+      loadReports();
     });
-  sSuccess.innerText = "Sadhana submitted successfully 🙏";
-  fields.forEach(f => f.value = "");
-  loadReports();
 }
 
-async function loadReports() {
-  const snap = await db.collection("users").doc(uid).collection("sadhana").get();
-  let rows = "";
-  snap.forEach(d => {
-    const r = d.data();
-    rows += `<tr><td>${d.id}</td><td>${r.sleep}</td><td>${r.wake}</td><td>${r.chant}</td></tr>`;
-  });
-  currentWeek.innerHTML = rows ? `<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th></tr>${rows}</table>` : "No data";
+function loadReports() {
+  db.collection("users").doc(uid).collection("sadhana").get()
+    .then(snap => {
+      let html = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th></tr>";
+      snap.forEach(d => {
+        const r = d.data();
+        html += `<tr><td>${d.id}</td><td>${r.sleep}</td><td>${r.wake}</td><td>${r.chant}</td></tr>`;
+      });
+      html += "</table>";
+      reports.innerHTML = html;
+    });
 }
 
-tabSadhana.onclick = () => switchTab("sadhana");
-tabReports.onclick = () => switchTab("reports");
-tabProfile.onclick = () => switchTab("profile");
-
-function switchTab(t) {
-  sadhana.style.display = reports.style.display = profile.style.display = "none";
-  tabSadhana.classList.remove("active");
-  tabReports.classList.remove("active");
-  tabProfile.classList.remove("active");
-  if (t === "sadhana") { sadhana.style.display = "block"; tabSadhana.classList.add("active"); }
-  if (t === "reports") { reports.style.display = "block"; tabReports.classList.add("active"); }
-  if (t === "profile") { profile.style.display = "block"; tabProfile.classList.add("active"); }
+function showTab(tab) {
+  sadhanaTab.style.display = tab==="sadhana"?"block":"none";
+  reportsTab.style.display = tab==="reports"?"block":"none";
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  event.target.classList.add("active");
 }
 </script>
 </body>
