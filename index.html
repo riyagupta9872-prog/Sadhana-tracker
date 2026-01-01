@@ -42,16 +42,8 @@
       border: none;
       cursor: pointer;
     }
-    .success {
-      color: green;
-      text-align: center;
-      margin-top: 8px;
-    }
-    .error {
-      color: #b00000;
-      text-align: center;
-      margin-top: 8px;
-    }
+    .success { color: green; text-align: center; margin-top: 8px; }
+    .error { color: #b00000; text-align: center; margin-top: 8px; }
   </style>
 </head>
 
@@ -63,34 +55,36 @@
 
 <div class="card" id="login" style="display:none;">
   <h3>Login</h3>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <input id="email" placeholder="Email" autocomplete="off">
+  <input id="password" type="password" placeholder="Password" autocomplete="off">
   <button onclick="loginUser()">Login</button>
 </div>
 
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
 
-  <label>Date</label>
-  <select id="date"></select>
+  <form autocomplete="off">
+    <label>Date</label>
+    <select id="date"></select>
 
-  <label>Sleep Time</label>
-  <input type="time" id="sleep">
+    <label>Sleep Time</label>
+    <input type="time" id="sleep" autocomplete="off">
 
-  <label>Wake Time</label>
-  <input type="time" id="wake">
+    <label>Wake Time</label>
+    <input type="time" id="wake" autocomplete="off">
 
-  <label>Chanting Completion</label>
-  <input type="time" id="chant">
+    <label>Chanting Completion</label>
+    <input type="time" id="chant" autocomplete="off">
 
-  <label>Reading (minutes)</label>
-  <input type="number" id="read">
+    <label>Reading (minutes)</label>
+    <input type="number" id="read" autocomplete="off">
 
-  <label>Hearing (minutes)</label>
-  <input type="number" id="hear">
+    <label>Hearing (minutes)</label>
+    <input type="number" id="hear" autocomplete="off">
 
-  <label>Day Sleep (minutes)</label>
-  <input type="number" id="daysleep">
+    <label>Day Sleep (minutes)</label>
+    <input type="number" id="daysleep" autocomplete="off">
+  </form>
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
   <div id="msgSuccess" class="success"></div>
@@ -112,6 +106,15 @@
   const db = firebase.firestore();
   let uid = null;
 
+  function clearForm() {
+    sleep.value = "";
+    wake.value = "";
+    chant.value = "";
+    read.value = "";
+    hear.value = "";
+    daysleep.value = "";
+  }
+
   auth.onAuthStateChanged(user => {
     loading.style.display = "none";
     msgSuccess.innerText = "";
@@ -122,6 +125,7 @@
       login.style.display = "none";
       sadhana.style.display = "block";
       setupDates();
+      clearForm(); // 🔒 ALWAYS BLANK ON LOGIN
     } else {
       login.style.display = "block";
       sadhana.style.display = "none";
@@ -155,15 +159,7 @@
     msgSuccess.innerText = "";
     msgError.innerText = "";
 
-    const values = [
-      sleep.value,
-      wake.value,
-      chant.value,
-      read.value,
-      hear.value,
-      daysleep.value
-    ];
-
+    const values = [sleep.value, wake.value, chant.value, read.value, hear.value, daysleep.value];
     if (values.some(v => v === "")) {
       msgError.innerText = "All sadhana activities are compulsory.";
       return;
@@ -181,6 +177,7 @@
       });
 
     msgSuccess.innerText = "Sadhana submitted successfully 🙏";
+    clearForm(); // 🔒 CLEAR AFTER SUBMIT
   }
 </script>
 
