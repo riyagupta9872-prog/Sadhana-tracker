@@ -4,6 +4,7 @@
   <title>Sadhana Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -11,9 +12,9 @@
   <style>
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #000080;
       min-height: 100vh;
+      background: #000080;
+      font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -23,23 +24,30 @@
       color: #000080;
       padding: 20px;
       border-radius: 12px;
-      width: 360px;
+      width: 95%;
+      max-width: 420px;
+      box-sizing: border-box;
     }
-    h3 { text-align: center; }
+    h3 { text-align: center; margin-top: 0; }
+    label { display:block; margin-top:10px; font-size:14px; }
     input, select {
       width: 100%;
       padding: 8px;
-      margin-top: 6px;
+      margin-top: 4px;
+      box-sizing: border-box;
     }
     button {
       width: 100%;
-      padding: 10px;
       margin-top: 12px;
+      padding: 10px;
       background: #000080;
       color: white;
       border: none;
       cursor: pointer;
+      font-size: 15px;
     }
+    .error { color:#b00000; text-align:center; margin-top:8px; }
+    .success { color:green; text-align:center; margin-top:8px; }
   </style>
 </head>
 
@@ -47,23 +55,28 @@
 
 <div class="card" id="loading">Checking session…</div>
 
-<div class="card" id="login" style="display:none;">
-  <h3>Login</h3>
+<div class="card" id="auth" style="display:none;">
+  <h3>Login / Sign Up</h3>
   <input id="email" placeholder="Email">
-  <input id="password" type="password">
+  <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
+  <button onclick="signup()">Sign Up</button>
+  <div id="authMsg" class="error"></div>
 </div>
 
 <div class="card" id="profile" style="display:none;">
   <h3>Profile Setup</h3>
-  <input id="name" placeholder="Your Name">
+  <label>Name</label>
+  <input id="name">
+  <label>Chanting Category</label>
   <select id="category">
-    <option value="">Select Chanting Category</option>
-    <option>0-4</option>
-    <option>5-9</option>
-    <option>10-16</option>
+    <option value="">Select</option>
+    <option value="0-4">0–4</option>
+    <option value="5-9">5–9</option>
+    <option value="10-16">10–16</option>
   </select>
   <button onclick="saveProfile()">Save Profile</button>
+  <div id="profileMsg" class="error"></div>
 </div>
 
 <div class="card" id="sadhana" style="display:none;">
@@ -78,7 +91,7 @@
   <label>Wake Time</label>
   <input type="time" id="wake">
 
-  <label>Chanting Completion</label>
+  <label>Chanting Completion Time</label>
   <input type="time" id="chant">
 
   <label>Reading (minutes)</label>
@@ -91,92 +104,114 @@
   <input type="number" id="daysleep">
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
+  <div id="sadhanaErr" class="error"></div>
+  <div id="sadhanaOk" class="success"></div>
+
   <button onclick="logout()">Logout</button>
 </div>
 
 <script>
-firebase.initializeApp({
-  apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-  authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-  projectId: "sadhana-tracker-b65ff"
-});
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+    authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+    projectId: "sadhana-tracker-b65ff",
+    appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+  };
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-let uid;
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-auth.onAuthStateChanged(async user => {
-  hideAll();
+  const loading = document.getElementById("loading");
+  const authBox = document.getElementById("auth");
+  const profileBox = document.getElementById("profile");
+  const sadhanaBox = document.getElementById("sadhana");
 
-  if (!user) {
-    login.style.display = "block";
-    return;
+  function hideAll(){
+    loading.style.display="none";
+    authBox.style.display="none";
+    profileBox.style.display="none";
+    sadhanaBox.style.display="none";
   }
 
-  uid = user.uid;
-  const doc = await db.collection("users").doc(uid).get();
-
-  if (!doc.exists || !doc.data().chantingCategory) {
-    profile.style.display = "block";
-  } else {
-    sadhana.style.display = "block";
+  auth.onAuthStateChanged(async user=>{
+    hideAll();
+    if(!user){
+      authBox.style.display="block";
+      return;
+    }
+    const doc = await db.collection("users").doc(user.uid).get();
+    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
+      profileBox.style.display="block";
+      return;
+    }
     initDates();
+    sadhanaBox.style.display="block";
+  });
+
+  function login(){
+    auth.signInWithEmailAndPassword(email.value, password.value)
+      .catch(e => authMsg.innerText = e.message);
   }
-});
 
-function hideAll() {
-  loading.style.display = "none";
-  login.style.display = "none";
-  profile.style.display = "none";
-  sadhana.style.display = "none";
-}
-
-function initDates() {
-  if (date.options.length) return;
-  for (let i = 0; i < 3; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const o = document.createElement("option");
-    o.value = d.toISOString().slice(0,10);
-    o.textContent = o.value;
-    date.appendChild(o);
+  function signup(){
+    auth.createUserWithEmailAndPassword(email.value, password.value)
+      .catch(e => authMsg.innerText = e.message);
   }
-}
 
-function login() {
-  auth.signInWithEmailAndPassword(email.value, password.value);
-}
+  function logout(){
+    auth.signOut();
+  }
 
-function logout() {
-  auth.signOut();
-}
-
-async function saveProfile() {
-  await db.collection("users").doc(uid).set({
-    name: name.value,
-    chantingCategory: category.value
-  }, { merge: true });
-
-  profile.style.display = "none";
-  sadhana.style.display = "block";
-  initDates();
-}
-
-async function submitSadhana() {
-  await db.collection("users").doc(uid)
-    .collection("sadhana").doc(date.value)
-    .set({
-      sleep: sleep.value,
-      wake: wake.value,
-      chant: chant.value,
-      read: read.value,
-      hear: hear.value,
-      daysleep: daysleep.value,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  async function saveProfile(){
+    if(!name.value || !category.value){
+      profileMsg.innerText="All fields required";
+      return;
+    }
+    await db.collection("users").doc(auth.currentUser.uid).set({
+      name: name.value,
+      chantingCategory: category.value
     });
+  }
 
-  alert("Sadhana submitted successfully");
-}
+  function initDates(){
+    date.innerHTML="";
+    const today = new Date();
+    for(let i=0;i<3;i++){
+      const d = new Date(today);
+      d.setDate(today.getDate()-i);
+      const v = d.toISOString().slice(0,10);
+      const o = document.createElement("option");
+      o.value=v;
+      o.textContent=v;
+      date.appendChild(o);
+    }
+  }
+
+  async function submitSadhana(){
+    sadhanaErr.innerText="";
+    sadhanaOk.innerText="";
+    const fields=[sleep,wake,chant,read,hear,daysleep];
+    if(fields.some(f=>f.value==="")){
+      sadhanaErr.innerText="All fields are compulsory";
+      return;
+    }
+    await db.collection("users")
+      .doc(auth.currentUser.uid)
+      .collection("sadhana")
+      .doc(date.value)
+      .set({
+        sleepTime:sleep.value,
+        wakeTime:wake.value,
+        chantingTime:chant.value,
+        reading:read.value,
+        hearing:hear.value,
+        daySleep:daysleep.value,
+        createdAt: new Date()
+      });
+    sadhanaOk.innerText="Sadhana submitted successfully 🙏";
+    fields.forEach(f=>f.value="");
+  }
 </script>
 
 </body>
