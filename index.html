@@ -12,11 +12,11 @@
     body {
       font-family: Arial, sans-serif;
       background: #000080;
+      margin: 0;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      margin: 0;
     }
     .card {
       background: white;
@@ -27,15 +27,15 @@
       color: #000080;
     }
     h3 { text-align: center; margin-top: 0; }
-    label { display: block; margin-top: 10px; font-size: 14px; }
+    label { display: block; margin-top: 10px; }
     input, select {
       width: 100%;
       padding: 6px;
       margin-top: 4px;
     }
     button {
-      margin-top: 12px;
       width: 100%;
+      margin-top: 12px;
       padding: 8px;
       background: #000080;
       color: white;
@@ -44,13 +44,11 @@
     }
     .success {
       color: green;
-      font-size: 14px;
       text-align: center;
       margin-top: 8px;
     }
     .error {
       color: #b00000;
-      font-size: 14px;
       text-align: center;
       margin-top: 8px;
     }
@@ -59,48 +57,46 @@
 
 <body>
 
-<!-- LOADING -->
 <div class="card" id="loading">
   <h3>Checking session…</h3>
 </div>
 
-<!-- LOGIN -->
-<div class="card" id="auth" style="display:none;">
+<div class="card" id="login" style="display:none;">
   <h3>Login</h3>
   <input id="email" placeholder="Email">
-  <input id="password" type="password">
-  <button onclick="login()">Login</button>
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="loginUser()">Login</button>
 </div>
 
-<!-- SADHANA -->
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
 
   <label>Date</label>
-  <select id="dateSelect"></select>
+  <select id="date"></select>
 
   <label>Sleep Time</label>
-  <input type="time" id="sleepTime">
+  <input type="time" id="sleep">
 
   <label>Wake Time</label>
-  <input type="time" id="wakeTime">
+  <input type="time" id="wake">
 
   <label>Chanting Completion</label>
-  <input type="time" id="chantingTime">
+  <input type="time" id="chant">
 
   <label>Reading (minutes)</label>
-  <input type="number" id="reading">
+  <input type="number" id="read">
 
   <label>Hearing (minutes)</label>
-  <input type="number" id="hearing">
+  <input type="number" id="hear">
 
   <label>Day Sleep (minutes)</label>
-  <input type="number" id="daySleep">
+  <input type="number" id="daysleep">
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
-  <div id="successMsg" class="success"></div>
-  <div id="errorMsg" class="error"></div>
-  <button onclick="logout()">Logout</button>
+  <div id="msgSuccess" class="success"></div>
+  <div id="msgError" class="error"></div>
+
+  <button onclick="logoutUser()">Logout</button>
 </div>
 
 <script>
@@ -118,22 +114,22 @@
 
   auth.onAuthStateChanged(user => {
     loading.style.display = "none";
-    successMsg.innerText = "";
-    errorMsg.innerText = "";
+    msgSuccess.innerText = "";
+    msgError.innerText = "";
 
     if (user) {
       uid = user.uid;
-      auth.style.display = "none";
+      login.style.display = "none";
       sadhana.style.display = "block";
       setupDates();
     } else {
-      auth.style.display = "block";
+      login.style.display = "block";
       sadhana.style.display = "none";
     }
   });
 
   function setupDates() {
-    dateSelect.innerHTML = "";
+    date.innerHTML = "";
     const today = new Date();
     for (let i = 0; i <= 2; i++) {
       const d = new Date(today);
@@ -142,45 +138,49 @@
       const opt = document.createElement("option");
       opt.value = v;
       opt.text = v;
-      dateSelect.appendChild(opt);
+      date.appendChild(opt);
     }
   }
 
-  function login() {
+  function loginUser() {
     auth.signInWithEmailAndPassword(email.value, password.value)
-      .catch(e => alert(e.message));
+      .catch(err => alert(err.message));
   }
 
-  function logout() {
+  function logoutUser() {
     auth.signOut();
   }
 
   async function submitSadhana() {
-    successMsg.innerText = "";
-    errorMsg.innerText = "";
+    msgSuccess.innerText = "";
+    msgError.innerText = "";
 
-    const data = {
-      sleepTime: sleepTime.value,
-      wakeTime: wakeTime.value,
-      chantingTime: chantingTime.value,
-      reading: reading.value,
-      hearing: hearing.value,
-      daySleep: daySleep.value
-    };
+    const values = [
+      sleep.value,
+      wake.value,
+      chant.value,
+      read.value,
+      hear.value,
+      daysleep.value
+    ];
 
-    // ALL fields must be filled
-    const allFilled = Object.values(data).every(v => v !== "");
-
-    if (!allFilled) {
-      errorMsg.innerText = "All sadhana activities must be filled.";
+    if (values.some(v => v === "")) {
+      msgError.innerText = "All sadhana activities are compulsory.";
       return;
     }
 
     await db.collection("users").doc(uid)
-      .collection("sadhana").doc(dateSelect.value)
-      .set(data, { merge:true });
+      .collection("sadhana").doc(date.value)
+      .set({
+        sleepTime: sleep.value,
+        wakeTime: wake.value,
+        chantingTime: chant.value,
+        reading: read.value,
+        hearing: hear.value,
+        daySleep: daysleep.value
+      });
 
-    successMsg.innerText = "Sadhana submitted successfully 🙏";
+    msgSuccess.innerText = "Sadhana submitted successfully 🙏";
   }
 </script>
 
