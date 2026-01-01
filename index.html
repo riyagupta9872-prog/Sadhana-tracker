@@ -22,28 +22,11 @@
       background: white;
       padding: 20px;
       border-radius: 10px;
-      width: 95%;
-      max-width: 420px;
+      width: 90%;
+      max-width: 400px;
       color: #000080;
     }
     h3 { text-align: center; margin-top: 0; }
-
-    .tabs {
-      display: flex;
-      margin-bottom: 15px;
-    }
-    .tab {
-      flex: 1;
-      text-align: center;
-      padding: 10px;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      font-weight: bold;
-    }
-    .tab.active {
-      border-bottom: 3px solid #000080;
-    }
-
     label { display: block; margin-top: 10px; font-size: 14px; }
     input, select {
       width: 100%;
@@ -59,9 +42,11 @@
       border: none;
       cursor: pointer;
     }
-    .center {
+    .success {
+      color: green;
+      font-size: 14px;
       text-align: center;
-      padding: 30px 10px;
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -69,58 +54,46 @@
 <body>
 
 <!-- LOADING -->
-<div class="card" id="loadingCard">
-  <div class="center">Checking session…</div>
+<div class="card" id="loading">
+  <h3>Checking session…</h3>
 </div>
 
 <!-- LOGIN -->
-<div class="card" id="authCard" style="display:none;">
+<div class="card" id="auth" style="display:none;">
   <h3>Login</h3>
   <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <input id="password" type="password">
   <button onclick="login()">Login</button>
 </div>
 
-<!-- APP -->
-<div class="card" id="appCard" style="display:none;">
-  <h3>Sadhana Tracker</h3>
+<!-- SADHANA -->
+<div class="card" id="sadhana" style="display:none;">
+  <h3>Daily Sadhana</h3>
 
-  <div class="tabs">
-    <div class="tab active" id="tabSadhana" onclick="showTab('sadhana')">Sadhana</div>
-    <div class="tab" id="tabScores" onclick="showTab('scores')">Scores</div>
-  </div>
+  <label>Date</label>
+  <select id="dateSelect"></select>
 
-  <!-- SADHANA -->
-  <div id="sadhanaTab">
-    <label>Date</label>
-    <select id="dateSelect"></select>
+  <label>Sleep Time</label>
+  <input type="time" id="sleepTime">
 
-    <label>Sleep Time</label>
-    <input type="time" id="sleepTime">
+  <label>Wake Time</label>
+  <input type="time" id="wakeTime">
 
-    <label>Wake Time</label>
-    <input type="time" id="wakeTime">
+  <label>Chanting Completion</label>
+  <input type="time" id="chantingTime">
 
-    <label>Chanting Completion</label>
-    <input type="time" id="chantingTime">
+  <label>Reading (minutes)</label>
+  <input type="number" id="reading">
 
-    <label>Reading (minutes)</label>
-    <input type="number" id="reading">
+  <label>Hearing (minutes)</label>
+  <input type="number" id="hearing">
 
-    <label>Hearing (minutes)</label>
-    <input type="number" id="hearing">
+  <label>Day Sleep (minutes)</label>
+  <input type="number" id="daySleep">
 
-    <label>Day Sleep (minutes)</label>
-    <input type="number" id="daySleep">
-
-    <button onclick="submitSadhana()">Submit Sadhana</button>
-    <button onclick="logout()">Logout</button>
-  </div>
-
-  <!-- SCORES (PLACEHOLDER) -->
-  <div id="scoresTab" style="display:none;">
-    <div class="center">Scores will appear here 🙏</div>
-  </div>
+  <button onclick="submitSadhana()">Submit Sadhana</button>
+  <div id="successMsg" class="success"></div>
+  <button onclick="logout()">Logout</button>
 </div>
 
 <script>
@@ -137,15 +110,16 @@
   let uid = null;
 
   auth.onAuthStateChanged(user => {
-    loadingCard.style.display = "none";
+    loading.style.display = "none";
+    successMsg.innerText = "";
     if (user) {
       uid = user.uid;
-      authCard.style.display = "none";
-      appCard.style.display = "block";
+      auth.style.display = "none";
+      sadhana.style.display = "block";
       setupDates();
     } else {
-      authCard.style.display = "block";
-      appCard.style.display = "none";
+      auth.style.display = "block";
+      sadhana.style.display = "none";
     }
   });
 
@@ -161,13 +135,6 @@
       opt.text = v;
       dateSelect.appendChild(opt);
     }
-  }
-
-  function showTab(tab) {
-    sadhanaTab.style.display = tab === "sadhana" ? "block" : "none";
-    scoresTab.style.display = tab === "scores" ? "block" : "none";
-    tabSadhana.classList.toggle("active", tab === "sadhana");
-    tabScores.classList.toggle("active", tab === "scores");
   }
 
   function login() {
@@ -188,8 +155,9 @@
         reading: reading.value,
         hearing: hearing.value,
         daySleep: daySleep.value
-      }, { merge: true });
-    alert("Sadhana saved");
+      }, { merge:true });
+
+    successMsg.innerText = "Sadhana submitted successfully 🙏";
   }
 </script>
 
