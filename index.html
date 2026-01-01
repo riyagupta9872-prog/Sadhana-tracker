@@ -23,7 +23,7 @@
       padding: 20px;
       border-radius: 10px;
       width: 90%;
-      max-width: 400px;
+      max-width: 420px;
       color: #000080;
     }
     h3 { text-align: center; margin-top: 0; }
@@ -49,10 +49,12 @@
 
 <body>
 
+<!-- LOADING -->
 <div class="card" id="loading">
   <h3>Checking session…</h3>
 </div>
 
+<!-- LOGIN -->
 <div class="card" id="login" style="display:none;">
   <h3>Login</h3>
   <input id="email" placeholder="Email" autocomplete="off">
@@ -60,31 +62,49 @@
   <button onclick="loginUser()">Login</button>
 </div>
 
+<!-- PROFILE SETUP -->
+<div class="card" id="profile" style="display:none;">
+  <h3>Profile Setup</h3>
+
+  <label>Name</label>
+  <input id="profileName" autocomplete="off">
+
+  <label>Chanting Category</label>
+  <select id="profileCategory">
+    <option value="">Select category</option>
+    <option value="0-4">0–4 rounds</option>
+    <option value="5-9">5–9 rounds</option>
+    <option value="10-16">10–16 rounds</option>
+  </select>
+
+  <button onclick="saveProfile()">Save Profile</button>
+  <div id="profileError" class="error"></div>
+</div>
+
+<!-- SADHANA -->
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
 
-  <form autocomplete="off">
-    <label>Date</label>
-    <select id="date"></select>
+  <label>Date</label>
+  <select id="date"></select>
 
-    <label>Sleep Time</label>
-    <input type="time" id="sleep" autocomplete="off">
+  <label>Sleep Time</label>
+  <input type="time" id="sleep" autocomplete="off">
 
-    <label>Wake Time</label>
-    <input type="time" id="wake" autocomplete="off">
+  <label>Wake Time</label>
+  <input type="time" id="wake" autocomplete="off">
 
-    <label>Chanting Completion</label>
-    <input type="time" id="chant" autocomplete="off">
+  <label>Chanting Completion</label>
+  <input type="time" id="chant" autocomplete="off">
 
-    <label>Reading (minutes)</label>
-    <input type="number" id="read" autocomplete="off">
+  <label>Reading (minutes)</label>
+  <input type="number" id="read" autocomplete="off">
 
-    <label>Hearing (minutes)</label>
-    <input type="number" id="hear" autocomplete="off">
+  <label>Hearing (minutes)</label>
+  <input type="number" id="hear" autocomplete="off">
 
-    <label>Day Sleep (minutes)</label>
-    <input type="number" id="daysleep" autocomplete="off">
-  </form>
+  <label>Day Sleep (minutes)</label>
+  <input type="number" id="daysleep" autocomplete="off">
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
   <div id="msgSuccess" class="success"></div>
@@ -106,29 +126,33 @@
   const db = firebase.firestore();
   let uid = null;
 
-  function clearForm() {
-    sleep.value = "";
-    wake.value = "";
-    chant.value = "";
-    read.value = "";
-    hear.value = "";
-    daysleep.value = "";
+  function clearSadhanaForm() {
+    sleep.value = wake.value = chant.value = read.value = hear.value = daysleep.value = "";
   }
 
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(async user => {
     loading.style.display = "none";
-    msgSuccess.innerText = "";
-    msgError.innerText = "";
 
-    if (user) {
-      uid = user.uid;
-      login.style.display = "none";
+    if (!user) {
+      login.style.display = "block";
+      profile.style.display = "none";
+      sadhana.style.display = "none";
+      return;
+    }
+
+    uid = user.uid;
+    login.style.display = "none";
+
+    const userDoc = await db.collection("users").doc(uid).get();
+
+    if (!userDoc.exists) {
+      profile.style.display = "block";
+      sadhana.style.display = "none";
+    } else {
+      profile.style.display = "none";
       sadhana.style.display = "block";
       setupDates();
-      clearForm(); // 🔒 ALWAYS BLANK ON LOGIN
-    } else {
-      login.style.display = "block";
-      sadhana.style.display = "none";
+      clearSadhanaForm();
     }
   });
 
@@ -155,6 +179,25 @@
     auth.signOut();
   }
 
+  async function saveProfile() {
+    profileError.innerText = "";
+    if (!profileName.value || !profileCategory.value) {
+      profileError.innerText = "Name and chanting category are mandatory.";
+      return;
+    }
+
+    await db.collection("users").doc(uid).set({
+      name: profileName.value,
+      chantingCategory: profileCategory.value,
+      createdAt: new Date()
+    });
+
+    profile.style.display = "none";
+    sadhana.style.display = "block";
+    setupDates();
+    clearSadhanaForm();
+  }
+
   async function submitSadhana() {
     msgSuccess.innerText = "";
     msgError.innerText = "";
@@ -177,7 +220,7 @@
       });
 
     msgSuccess.innerText = "Sadhana submitted successfully 🙏";
-    clearForm(); // 🔒 CLEAR AFTER SUBMIT
+    clearSadhanaForm();
   }
 </script>
 
