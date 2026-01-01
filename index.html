@@ -26,59 +26,51 @@
       width: 95%;
       max-width: 900px;
     }
-    h3 { text-align: center; margin-top: 0; }
-    .tabs {
-      display: flex;
-      margin-bottom: 15px;
-    }
+    h3 { text-align:center; margin-top:0 }
+    .tabs { display:flex; margin-bottom:15px }
     .tab {
-      flex: 1;
-      text-align: center;
-      padding: 10px;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
+      flex:1; text-align:center; padding:10px;
+      cursor:pointer; border-bottom:3px solid transparent;
     }
     .tab.active {
-      border-bottom: 3px solid #000080;
-      font-weight: bold;
+      border-bottom:3px solid #000080;
+      font-weight:bold;
     }
-    label { font-size: 13px; display: block; margin-top: 8px; }
+    label { font-size:13px; display:block; margin-top:8px }
     input, select {
-      width: 100%;
-      padding: 6px;
-      margin-top: 4px;
+      width:100%; padding:6px; margin-top:4px;
     }
     button {
-      padding: 8px 12px;
-      margin-top: 10px;
-      background: #000080;
-      color: white;
-      border: none;
-      cursor: pointer;
+      padding:8px 12px;
+      margin-top:10px;
+      background:#000080;
+      color:white;
+      border:none;
+      cursor:pointer;
     }
     table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin-top: 10px;
+      width:100%; border-collapse:collapse;
+      font-size:13px; margin-top:10px;
     }
     th, td {
-      border: 1px solid #ddd;
-      padding: 6px;
-      text-align: center;
+      border:1px solid #ddd;
+      padding:6px;
+      text-align:center;
     }
-    th { background: #f0f0f0; }
-    .neg { color: #b00000; }
-    .week-header {
-      background: #f7f7f7;
-      padding: 8px;
-      margin-top: 10px;
-      cursor: pointer;
-      border-radius: 6px;
+    th { background:#f0f0f0 }
+    .month-box {
+      background:#f7f7f7;
+      padding:8px;
+      border-radius:6px;
+      margin-bottom:10px;
+      font-size:14px;
+    }
+    .week-line {
+      padding:4px 0;
     }
     .danger {
-      color: #b00000;
-      font-weight: bold;
+      color:#b00000;
+      font-weight:bold;
     }
   </style>
 </head>
@@ -122,10 +114,12 @@
 
   <!-- SCORES TAB -->
   <div id="scoresTab" style="display:none">
+    <div id="monthlySummary"></div>
+
     <h4>Current Week</h4>
     <div id="currentWeek"></div>
 
-    <h4 style="margin-top:20px">Previous Weeks</h4>
+    <h4 style="margin-top:15px">Previous Weeks</h4>
     <div id="previousWeeks"></div>
   </div>
 </div>
@@ -134,7 +128,7 @@
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-    projectId: "sadhana-tracker-b65ff",
+    projectId: "sadhana-tracker-b65ff.firebaseapp.com",
     appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
   };
 
@@ -144,10 +138,10 @@
   let uid = null;
 
   function showTab(tab) {
-    document.getElementById("sadhanaTab").style.display = tab === "sadhana" ? "block" : "none";
-    document.getElementById("scoresTab").style.display = tab === "scores" ? "block" : "none";
-    document.getElementById("tabSadhana").classList.toggle("active", tab === "sadhana");
-    document.getElementById("tabScores").classList.toggle("active", tab === "scores");
+    sadhanaTab.style.display = tab === "sadhana" ? "block" : "none";
+    scoresTab.style.display = tab === "scores" ? "block" : "none";
+    tabSadhana.classList.toggle("active", tab === "sadhana");
+    tabScores.classList.toggle("active", tab === "scores");
     if (tab === "scores") loadScores();
   }
 
@@ -159,7 +153,8 @@
       d.setDate(t.getDate() - i);
       const v = d.toISOString().slice(0,10);
       const o = document.createElement("option");
-      o.value = v; o.text = v;
+      o.value = v;
+      o.text = v;
       dateSelect.appendChild(o);
     }
   }
@@ -171,58 +166,41 @@
   });
 
   async function submitSadhana() {
-    const date = dateSelect.value;
     await db.collection("users").doc(uid)
-      .collection("sadhana").doc(date).set({
+      .collection("sadhana").doc(dateSelect.value).set({
         sleepTime: sleepTime.value,
         wakeTime: wakeTime.value,
         chantingTime: chantingTime.value,
         reading: reading.value,
         hearing: hearing.value,
-        daySleep: daySleep.value,
-        date
+        daySleep: daySleep.value
       }, { merge:true });
     alert("Saved");
   }
 
   function logout() { auth.signOut(); }
 
-  // ---------- SCORES ----------
+  /* ---------- SCORES ---------- */
   async function loadScores() {
     const snap = await db.collection("users").doc(uid).collection("sadhana").get();
     const data = {};
     snap.forEach(d => data[d.id] = d.data());
 
     const weeks = groupByWeek(data);
+    renderMonthlySummary(weeks);
     renderCurrentWeek(weeks.current);
     renderPreviousWeeks(weeks.previous);
   }
 
-  function groupByWeek(data) {
+  function renderMonthlySummary(weeks) {
     const now = new Date();
-    const start = new Date(now);
-    start.setDate(now.getDate() - now.getDay());
-    const end = new Date(start); end.setDate(start.getDate()+6);
-
-    const current = [];
-    const previous = {};
-
-    for (const d in data) {
-      const dt = new Date(d);
-      if (dt >= start && dt <= end) current.push({date:d, ...data[d]});
-      else {
-        const key = weekRange(dt);
-        previous[key] = previous[key] || [];
-        previous[key].push({date:d, ...data[d]});
-      }
-    }
-    return { current, previous };
-  }
-
-  function weekRange(d) {
-    const s = new Date(d); s.setDate(d.getDate()-d.getDay());
-    const e = new Date(s); e.setDate(s.getDate()+6);
-    return s.toISOString().slice(0,10)+" → "+e.toISOString().slice(0,10);
+    const monthName = now.toLocaleString("default", { month:"long", year:"numeric" });
+    let html = `<div class="month-box"><b>${monthName}</b>`;
+    Object.keys(weeks.previous).forEach(w => {
+      html += `<div class="week-line">• ${w}</div>`;
+    });
+    html += "</div>";
+    monthlySummary.innerHTML = html;
   }
 
   function renderCurrentWeek(data) {
@@ -233,10 +211,10 @@
     previousWeeks.innerHTML = "";
     Object.keys(weeks).forEach(k => {
       const div = document.createElement("div");
-      div.className="week-header";
+      div.className = "month-box";
       div.innerText = k;
       div.onclick = () => {
-        div.innerHTML = "<b>"+k+"</b>"+renderWeekTable(weeks[k]);
+        div.innerHTML = `<b>${k}</b>` + renderWeekTable(weeks[k]);
       };
       previousWeeks.appendChild(div);
     });
@@ -244,19 +222,50 @@
 
   function renderWeekTable(rows) {
     let html = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>DaySleep</th></tr>";
-    rows.forEach(r=>{
-      html+=`<tr>
-        <td>${r.date}</td>
-        <td>${r.sleepTime||"NR"}</td>
-        <td>${r.wakeTime||"NR"}</td>
-        <td>${r.chantingTime||"NR"}</td>
-        <td>${r.reading||"NR"}</td>
-        <td>${r.hearing||"NR"}</td>
-        <td>${r.daySleep||"NR"}</td>
+    rows.forEach(r => {
+      html += `<tr>
+        <td>${r.date || ""}</td>
+        <td>${r.sleepTime || "NR"}</td>
+        <td>${r.wakeTime || "NR"}</td>
+        <td>${r.chantingTime || "NR"}</td>
+        <td>${r.reading || "NR"}</td>
+        <td>${r.hearing || "NR"}</td>
+        <td>${r.daySleep || "NR"}</td>
       </tr>`;
     });
-    html+="</table>";
+    html += "</table>";
     return html;
+  }
+
+  function groupByWeek(data) {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const current = [];
+    const previous = {};
+
+    for (const d in data) {
+      const dt = new Date(d);
+      if (dt >= start && dt <= end) {
+        current.push({ date:d, ...data[d] });
+      } else {
+        const key = weekRange(dt);
+        previous[key] = previous[key] || [];
+        previous[key].push({ date:d, ...data[d] });
+      }
+    }
+    return { current, previous };
+  }
+
+  function weekRange(d) {
+    const s = new Date(d);
+    s.setDate(d.getDate() - d.getDay());
+    const e = new Date(s);
+    e.setDate(s.getDate() + 6);
+    return s.toISOString().slice(0,10) + " → " + e.toISOString().slice(0,10);
   }
 </script>
 
