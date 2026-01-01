@@ -49,12 +49,10 @@
 
 <body>
 
-<!-- LOADING -->
 <div class="card" id="loading">
   <h3>Checking session…</h3>
 </div>
 
-<!-- LOGIN -->
 <div class="card" id="login" style="display:none;">
   <h3>Login</h3>
   <input id="email" placeholder="Email" autocomplete="off">
@@ -62,7 +60,6 @@
   <button onclick="loginUser()">Login</button>
 </div>
 
-<!-- PROFILE SETUP -->
 <div class="card" id="profile" style="display:none;">
   <h3>Profile Setup</h3>
 
@@ -81,7 +78,6 @@
   <div id="profileError" class="error"></div>
 </div>
 
-<!-- SADHANA -->
 <div class="card" id="sadhana" style="display:none;">
   <h3>Daily Sadhana</h3>
 
@@ -89,22 +85,22 @@
   <select id="date"></select>
 
   <label>Sleep Time</label>
-  <input type="time" id="sleep" autocomplete="off">
+  <input type="time" id="sleep">
 
   <label>Wake Time</label>
-  <input type="time" id="wake" autocomplete="off">
+  <input type="time" id="wake">
 
   <label>Chanting Completion</label>
-  <input type="time" id="chant" autocomplete="off">
+  <input type="time" id="chant">
 
   <label>Reading (minutes)</label>
-  <input type="number" id="read" autocomplete="off">
+  <input type="number" id="read">
 
   <label>Hearing (minutes)</label>
-  <input type="number" id="hear" autocomplete="off">
+  <input type="number" id="hear">
 
   <label>Day Sleep (minutes)</label>
-  <input type="number" id="daysleep" autocomplete="off">
+  <input type="number" id="daysleep">
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
   <div id="msgSuccess" class="success"></div>
@@ -144,8 +140,9 @@
     login.style.display = "none";
 
     const userDoc = await db.collection("users").doc(uid).get();
+    const data = userDoc.exists ? userDoc.data() : null;
 
-    if (!userDoc.exists) {
+    if (!data || !data.name || !data.chantingCategory) {
       profile.style.display = "block";
       sadhana.style.display = "none";
     } else {
@@ -189,8 +186,8 @@
     await db.collection("users").doc(uid).set({
       name: profileName.value,
       chantingCategory: profileCategory.value,
-      createdAt: new Date()
-    });
+      updatedAt: new Date()
+    }, { merge: true });
 
     profile.style.display = "none";
     sadhana.style.display = "block";
