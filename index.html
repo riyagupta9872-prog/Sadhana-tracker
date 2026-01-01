@@ -48,6 +48,12 @@
       text-align: center;
       margin-top: 8px;
     }
+    .error {
+      color: #b00000;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -93,6 +99,7 @@
 
   <button onclick="submitSadhana()">Submit Sadhana</button>
   <div id="successMsg" class="success"></div>
+  <div id="errorMsg" class="error"></div>
   <button onclick="logout()">Logout</button>
 </div>
 
@@ -112,6 +119,8 @@
   auth.onAuthStateChanged(user => {
     loading.style.display = "none";
     successMsg.innerText = "";
+    errorMsg.innerText = "";
+
     if (user) {
       uid = user.uid;
       auth.style.display = "none";
@@ -147,15 +156,29 @@
   }
 
   async function submitSadhana() {
+    successMsg.innerText = "";
+    errorMsg.innerText = "";
+
+    const data = {
+      sleepTime: sleepTime.value,
+      wakeTime: wakeTime.value,
+      chantingTime: chantingTime.value,
+      reading: reading.value,
+      hearing: hearing.value,
+      daySleep: daySleep.value
+    };
+
+    // ALL fields must be filled
+    const allFilled = Object.values(data).every(v => v !== "");
+
+    if (!allFilled) {
+      errorMsg.innerText = "All sadhana activities must be filled.";
+      return;
+    }
+
     await db.collection("users").doc(uid)
-      .collection("sadhana").doc(dateSelect.value).set({
-        sleepTime: sleepTime.value,
-        wakeTime: wakeTime.value,
-        chantingTime: chantingTime.value,
-        reading: reading.value,
-        hearing: hearing.value,
-        daySleep: daySleep.value
-      }, { merge:true });
+      .collection("sadhana").doc(dateSelect.value)
+      .set(data, { merge:true });
 
     successMsg.innerText = "Sadhana submitted successfully 🙏";
   }
