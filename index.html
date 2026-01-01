@@ -31,20 +31,20 @@
     }
     h3 { text-align: center; margin-top: 0; }
 
+    /* Tabs */
     .tabs {
       display: flex;
-      background: white;
       border-radius: 10px;
       overflow: hidden;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .tab {
       flex: 1;
-      text-align: center;
       padding: 10px;
+      text-align: center;
       cursor: pointer;
+      background: #e6e6e6;
       font-weight: bold;
-      background: #eee;
     }
     .tab.active {
       background: #000080;
@@ -117,14 +117,14 @@
 
   <div id="app" style="display:none;">
 
-    <!-- TOP TABS -->
+    <!-- Tabs (visual only) -->
     <div class="tabs">
-      <div class="tab active" onclick="showTab('sadhana', this)">Sadhana</div>
-      <div class="tab" onclick="showTab('reports', this)">Reports</div>
+      <div class="tab active" id="tabSadhana">Sadhana</div>
+      <div class="tab" id="tabReports">Reports</div>
     </div>
 
-    <!-- SADHANA TAB -->
-    <div class="card" id="sadhanaTab">
+    <!-- SADHANA -->
+    <div class="card" id="sadhanaSection">
       <h3>Daily Sadhana</h3>
 
       <label>Date</label>
@@ -143,8 +143,8 @@
       <button onclick="logoutUser()">Logout</button>
     </div>
 
-    <!-- REPORTS TAB -->
-    <div class="card" id="reportsTab" style="display:none;">
+    <!-- REPORTS -->
+    <div class="card" id="reportsSection" style="display:none;">
       <h3>Current Week</h3>
       <div id="currentWeek"></div>
 
@@ -169,58 +169,71 @@
   const db = firebase.firestore();
 
   let uid;
-  let datesInit = false;
+  let datesInitialized = false;
 
-  function hideAll(){
+  function hideAll() {
     loading.style.display="none";
     login.style.display="none";
     profile.style.display="none";
     app.style.display="none";
   }
 
-  auth.onAuthStateChanged(async user=>{
+  auth.onAuthStateChanged(async user => {
     hideAll();
-    if(!user){ login.style.display="block"; return; }
 
-    uid=user.uid;
-    const doc=await db.collection("users").doc(uid).get();
+    if (!user) {
+      login.style.display="block";
+      return;
+    }
 
-    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
-      profile.style.display="block"; return;
+    uid = user.uid;
+    const doc = await db.collection("users").doc(uid).get();
+
+    if (!doc.exists || !doc.data().name || !doc.data().chantingCategory) {
+      profile.style.display="block";
+      return;
     }
 
     app.style.display="block";
-    setupDatesOnce();
+    initDatesOnce();
     loadReports();
   });
 
-  function setupDatesOnce(){
-    if(datesInit) return;
-    datesInit=true;
+  function initDatesOnce() {
+    if (datesInitialized) return;
+    datesInitialized = true;
 
-    const today=new Date();
-    for(let i=0;i<3;i++){
-      const d=new Date(today);
+    const today = new Date();
+    for (let i=0;i<3;i++) {
+      const d = new Date(today);
       d.setDate(today.getDate()-i);
-      const opt=document.createElement("option");
-      opt.value=d.toISOString().slice(0,10);
-      opt.textContent=opt.value;
+      const opt = document.createElement("option");
+      opt.value = d.toISOString().slice(0,10);
+      opt.textContent = opt.value;
       date.appendChild(opt);
     }
   }
 
-  function showTab(tab, el){
-    sadhanaTab.style.display = tab==="sadhana" ? "block" : "none";
-    reportsTab.style.display = tab==="reports" ? "block" : "none";
+  /* Tabs – visual only */
+  tabSadhana.onclick = () => {
+    sadhanaSection.style.display="block";
+    reportsSection.style.display="none";
+    tabSadhana.classList.add("active");
+    tabReports.classList.remove("active");
+  };
 
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    el.classList.add("active");
-  }
+  tabReports.onclick = () => {
+    sadhanaSection.style.display="none";
+    reportsSection.style.display="block";
+    tabReports.classList.add("active");
+    tabSadhana.classList.remove("active");
+  };
 
-  async function submitSadhana(){
+  async function submitSadhana() {
     const fields=[sleep,wake,chant,read,hear,daysleep];
-    if(fields.some(f=>f.value==="")){
-      msgError.innerText="All fields compulsory"; return;
+    if (fields.some(f=>f.value==="")) {
+      msgError.innerText="All fields compulsory";
+      return;
     }
 
     await db.collection("users").doc(uid)
@@ -239,20 +252,20 @@
     loadReports();
   }
 
-  async function loadReports(){
-    const snap=await db.collection("users").doc(uid).collection("sadhana").get();
-    const byWeek={};
+  async function loadReports() {
+    const snap = await db.collection("users").doc(uid).collection("sadhana").get();
+    const byWeek = {};
 
     snap.forEach(doc=>{
-      const dt=new Date(doc.id);
-      const sun=new Date(dt);
+      const dt = new Date(doc.id);
+      const sun = new Date(dt);
       sun.setDate(dt.getDate()-dt.getDay());
-      const key=sun.toISOString().slice(0,10);
+      const key = sun.toISOString().slice(0,10);
       byWeek[key]=byWeek[key]||[];
       byWeek[key].push({date:doc.id,...doc.data()});
     });
 
-    const weeks=Object.keys(byWeek).sort().reverse();
+    const weeks = Object.keys(byWeek).sort().reverse();
     renderTable(currentWeek, byWeek[weeks[0]]||[]);
     previousWeeks.innerHTML="";
 
@@ -280,9 +293,10 @@
   function loginUser(){ auth.signInWithEmailAndPassword(email.value,password.value); }
   function logoutUser(){ auth.signOut(); }
 
-  async function saveProfile(){
-    if(!profileName.value || !profileCategory.value){
-      profileError.innerText="All fields mandatory"; return;
+  async function saveProfile() {
+    if (!profileName.value || !profileCategory.value) {
+      profileError.innerText="All fields mandatory";
+      return;
     }
     await db.collection("users").doc(uid).set({
       name:profileName.value,
@@ -290,7 +304,7 @@
     },{merge:true});
     hideAll();
     app.style.display="block";
-    setupDatesOnce();
+    initDatesOnce();
   }
 </script>
 
