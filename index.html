@@ -31,12 +31,11 @@
     }
     h3 { text-align: center; margin-top: 0; }
 
-    /* Tabs */
     .tabs {
       display: flex;
+      margin-bottom: 10px;
       border-radius: 10px;
       overflow: hidden;
-      margin-bottom: 10px;
     }
     .tab {
       flex: 1;
@@ -84,6 +83,11 @@
       font-weight:bold;
       cursor:pointer;
     }
+    .user-row {
+      padding:6px;
+      border-bottom:1px solid #ddd;
+      cursor:pointer;
+    }
   </style>
 </head>
 
@@ -117,7 +121,7 @@
 
   <div id="app" style="display:none;">
 
-    <!-- Tabs (visual only) -->
+    <!-- Tabs -->
     <div class="tabs">
       <div class="tab active" id="tabSadhana">Sadhana</div>
       <div class="tab" id="tabReports">Reports</div>
@@ -152,11 +156,21 @@
       <div id="previousWeeks"></div>
     </div>
 
+    <!-- ADMIN PANEL -->
+    <div class="card" id="adminPanel" style="display:none;">
+      <h3>Admin Panel</h3>
+      <div id="userList"></div>
+      <h3 id="adminUserTitle"></h3>
+      <div id="adminUserReports"></div>
+    </div>
+
   </div>
 
 </div>
 
 <script>
+  const SUPER_ADMIN_EMAIL = "riyagupta9872@gmail.com";
+
   const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -168,74 +182,72 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  let uid;
-  let datesInitialized = false;
+  let uid, userRole="user";
+  let datesInit=false;
 
-  function hideAll() {
+  function hideAll(){
     loading.style.display="none";
     login.style.display="none";
     profile.style.display="none";
     app.style.display="none";
   }
 
-  auth.onAuthStateChanged(async user => {
+  auth.onAuthStateChanged(async user=>{
     hideAll();
+    if(!user){ login.style.display="block"; return; }
 
-    if (!user) {
-      login.style.display="block";
-      return;
+    uid=user.uid;
+    const ref=db.collection("users").doc(uid);
+    const doc=await ref.get();
+
+    if(!doc.exists || !doc.data().name || !doc.data().chantingCategory){
+      profile.style.display="block"; return;
     }
 
-    uid = user.uid;
-    const doc = await db.collection("users").doc(uid).get();
-
-    if (!doc.exists || !doc.data().name || !doc.data().chantingCategory) {
-      profile.style.display="block";
-      return;
-    }
+    userRole=doc.data().role||"user";
 
     app.style.display="block";
-    initDatesOnce();
-    loadReports();
+    initDates();
+    loadReports(uid);
+
+    if(user.email===SUPER_ADMIN_EMAIL || userRole==="admin"){
+      adminPanel.style.display="block";
+      loadUsers();
+    }
   });
 
-  function initDatesOnce() {
-    if (datesInitialized) return;
-    datesInitialized = true;
-
-    const today = new Date();
-    for (let i=0;i<3;i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate()-i);
-      const opt = document.createElement("option");
-      opt.value = d.toISOString().slice(0,10);
-      opt.textContent = opt.value;
-      date.appendChild(opt);
+  function initDates(){
+    if(datesInit) return;
+    datesInit=true;
+    const t=new Date();
+    for(let i=0;i<3;i++){
+      const d=new Date(t);
+      d.setDate(t.getDate()-i);
+      const o=document.createElement("option");
+      o.value=d.toISOString().slice(0,10);
+      o.textContent=o.value;
+      date.appendChild(o);
     }
   }
 
-  /* Tabs – visual only */
-  tabSadhana.onclick = () => {
+  tabSadhana.onclick=()=>{
     sadhanaSection.style.display="block";
     reportsSection.style.display="none";
     tabSadhana.classList.add("active");
     tabReports.classList.remove("active");
   };
-
-  tabReports.onclick = () => {
+  tabReports.onclick=()=>{
     sadhanaSection.style.display="none";
     reportsSection.style.display="block";
     tabReports.classList.add("active");
     tabSadhana.classList.remove("active");
   };
 
-  async function submitSadhana() {
-    const fields=[sleep,wake,chant,read,hear,daysleep];
-    if (fields.some(f=>f.value==="")) {
-      msgError.innerText="All fields compulsory";
-      return;
+  async function submitSadhana(){
+    const f=[sleep,wake,chant,read,hear,daysleep];
+    if(f.some(x=>x.value==="")){
+      msgError.innerText="All fields compulsory"; return;
     }
-
     await db.collection("users").doc(uid)
       .collection("sadhana").doc(date.value)
       .set({
@@ -246,38 +258,34 @@
         hearing:hear.value,
         daySleep:daysleep.value
       });
-
     msgSuccess.innerText="Sadhana submitted successfully 🙏";
-    fields.forEach(f=>f.value="");
-    loadReports();
+    f.forEach(x=>x.value="");
+    loadReports(uid);
   }
 
-  async function loadReports() {
-    const snap = await db.collection("users").doc(uid).collection("sadhana").get();
-    const byWeek = {};
-
+  async function loadReports(userId){
+    const snap=await db.collection("users").doc(userId).collection("sadhana").get();
+    const byWeek={};
     snap.forEach(doc=>{
-      const dt = new Date(doc.id);
-      const sun = new Date(dt);
+      const dt=new Date(doc.id);
+      const sun=new Date(dt);
       sun.setDate(dt.getDate()-dt.getDay());
-      const key = sun.toISOString().slice(0,10);
-      byWeek[key]=byWeek[key]||[];
-      byWeek[key].push({date:doc.id,...doc.data()});
+      const k=sun.toISOString().slice(0,10);
+      byWeek[k]=byWeek[k]||[];
+      byWeek[k].push({date:doc.id,...doc.data()});
     });
-
-    const weeks = Object.keys(byWeek).sort().reverse();
-    renderTable(currentWeek, byWeek[weeks[0]]||[]);
+    const weeks=Object.keys(byWeek).sort().reverse();
+    renderTable(currentWeek,byWeek[weeks[0]]||[]);
     previousWeeks.innerHTML="";
-
     weeks.slice(1).forEach(w=>{
-      const div=document.createElement("div");
-      div.innerHTML=`<div class="week-header">${w}</div><div style="display:none"></div>`;
-      div.children[0].onclick=()=>{
-        const c=div.children[1];
+      const d=document.createElement("div");
+      d.innerHTML=`<div class="week-header">${w}</div><div style="display:none"></div>`;
+      d.children[0].onclick=()=>{
+        const c=d.children[1];
         c.style.display=c.style.display==="none"?"block":"none";
         renderTable(c,byWeek[w]);
       };
-      previousWeeks.appendChild(div);
+      previousWeeks.appendChild(d);
     });
   }
 
@@ -290,21 +298,43 @@
     el.innerHTML=h+"</table>";
   }
 
+  async function loadUsers(){
+    const snap=await db.collection("users").get();
+    userList.innerHTML="";
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const row=document.createElement("div");
+      row.className="user-row";
+      row.innerHTML=`${d.name} (${d.role||"user"})`;
+      if(auth.currentUser.email===SUPER_ADMIN_EMAIL){
+        row.innerHTML+=` <button onclick="toggleAdmin('${doc.id}','${d.role||"user"}')">Toggle Admin</button>`;
+      }
+      row.onclick=()=>loadReports(doc.id);
+      userList.appendChild(row);
+    });
+  }
+
+  async function toggleAdmin(id,role){
+    const newRole=role==="admin"?"user":"admin";
+    await db.collection("users").doc(id).update({role:newRole});
+    loadUsers();
+  }
+
   function loginUser(){ auth.signInWithEmailAndPassword(email.value,password.value); }
   function logoutUser(){ auth.signOut(); }
 
-  async function saveProfile() {
-    if (!profileName.value || !profileCategory.value) {
-      profileError.innerText="All fields mandatory";
-      return;
+  async function saveProfile(){
+    if(!profileName.value||!profileCategory.value){
+      profileError.innerText="All fields mandatory"; return;
     }
     await db.collection("users").doc(uid).set({
       name:profileName.value,
-      chantingCategory:profileCategory.value
+      chantingCategory:profileCategory.value,
+      role:"user"
     },{merge:true});
     hideAll();
     app.style.display="block";
-    initDatesOnce();
+    initDates();
   }
 </script>
 
