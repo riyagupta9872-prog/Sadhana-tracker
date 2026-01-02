@@ -1,4 +1,4 @@
-alert("JS LOADED");// ================= FIREBASE CONFIG (REAL, WORKING) =================
+// ================= FIREBASE CONFIG (REAL, WORKING) =================
 const firebaseConfig = {
   apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
   authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -8,7 +8,9 @@ const firebaseConfig = {
   appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 const auth = firebase.auth();
 const db = firebase.firestore();
 
