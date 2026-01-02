@@ -240,4 +240,4 @@ window.switchTab = name => {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.getElementById(name + "-tab").classList.add("active");
-};
+}; 
