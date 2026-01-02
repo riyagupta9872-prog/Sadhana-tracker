@@ -232,22 +232,43 @@ header h2 {
     display: block;
 }
 
+/* FIX: Adjusted daily-entry to use flex for better layout of multiple lines */
 .daily-entry {
-    display: grid;
-    grid-template-columns: 1fr 0.5fr 1.5fr; /* Date, Score, Activities */
-    gap: 10px;
+    display: flex; /* Changed from grid to flex */
+    flex-wrap: wrap; /* Allow items to wrap to next line */
+    justify-content: space-between; /* Distribute items */
     padding: 8px 0;
     border-bottom: 1px dashed #eee;
     font-size: 14px;
-    align-items: center;
+    align-items: flex-start; /* Align items to the start of the cross-axis */
+    margin-bottom: 5px; /* Add some space between entries */
 }
 .daily-entry:last-child {
     border-bottom: none;
 }
 
+.daily-entry span { /* Make spans take appropriate width */
+    margin-right: 10px;
+    flex-basis: auto; /* Allow content to dictate width initially */
+}
 .daily-entry span:nth-child(1) { /* Date */
     font-weight: bold;
     color: #555;
+    flex-basis: 120px; /* Give date a fixed width */
+    min-width: 100px;
+}
+.daily-entry span:nth-child(2) { /* Daily Total */
+    font-weight: bold;
+    flex-basis: 120px; /* Give total a fixed width */
+    min-width: 100px;
+    text-align: right;
+}
+.daily-entry span:nth-child(3) { /* Activity details - take remaining space */
+    flex-basis: calc(100% - 250px); /* Adjust based on fixed widths of first two spans */
+    min-width: 200px; /* Minimum width for activity details */
+    margin-top: 5px; /* Separate from date/total if it wraps */
+    margin-left: 10px; /* Indent if it wraps */
+    line-height: 1.4;
 }
 
 
