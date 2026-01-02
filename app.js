@@ -185,7 +185,7 @@ document.getElementById('profile-form').addEventListener('submit', async (e) => 
 
 // --- Sadhana Entry Functions ---
 
-// Populates the date selection dropdown with "Today", "Yesterday", "Day Before Yesterday"
+// Populates the date selection dropdown with actual dates (YYYY-MM-DD)
 function setupDateSelect() {
     const select = document.getElementById('sadhana-date');
     select.innerHTML = ''; // Clear existing options
@@ -197,17 +197,12 @@ function setupDateSelect() {
         d.setDate(today.getDate() - i); // Subtract days
         const dateStr = d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
 
-        let label;
-        if (i === 0) label = 'Today';
-        else if (i === 1) label = 'Yesterday';
-        else label = 'Day Before Yesterday';
-
         const option = document.createElement('option');
         option.value = dateStr;
-        option.textContent = `${label} (${dateStr})`;
+        option.textContent = dateStr; // Only show the date in YYYY-MM-DD format
         select.appendChild(option);
     }
-    // Set 'Today' as the default selected option
+    // Set 'Today's date as the default selected option
     select.value = today.toISOString().split('T')[0];
 }
 
