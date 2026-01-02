@@ -1,4 +1,4 @@
-// ================= FIREBASE CONFIG (REAL, WORKING) =================
+// ================= FIREBASE CONFIG =================
 const firebaseConfig = {
   apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
   authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -11,6 +11,7 @@ const firebaseConfig = {
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
+
 const auth = firebase.auth();
 const db = firebase.firestore();
 
@@ -40,6 +41,7 @@ auth.onAuthStateChanged(async user => {
   }
 
   const snap = await db.collection("users").doc(user.uid).get();
+
   if (!snap.exists) {
     showView("profile");
     return;
@@ -72,13 +74,13 @@ document.getElementById("login-form").addEventListener("submit", e => {
       document.getElementById("login-password").value
     )
     .catch(err => {
-      document.getElementById("auth-error").innerText = err.message;
+      document.getElementById("auth-error").textContent = err.message;
     });
 });
 
-// ================= LOGOUT =================
 document.getElementById("logout-btn").addEventListener("click", () => {
   auth.signOut();
+  location.reload();
 });
 
 // ================= PROFILE =================
@@ -100,34 +102,35 @@ document.getElementById("profile-form").addEventListener("submit", async e => {
 
 // ================= DATE SELECT =================
 function setupDateSelect() {
-  const sel = document.getElementById("sadhana-date");
-  sel.innerHTML = "";
-  const today = new Date();
+  const select = document.getElementById("sadhana-date");
+  select.innerHTML = "";
 
+  const today = new Date();
   for (let i = 0; i < 3; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const iso = d.toISOString().split("T")[0];
+    const id = d.toISOString().split("T")[0];
     const opt = document.createElement("option");
-    opt.value = iso;
-    opt.textContent = iso;
-    sel.appendChild(opt);
+    opt.value = id;
+    opt.textContent =
+      i === 0 ? "Today" : i === 1 ? "Yesterday" : "Day Before Yesterday";
+    select.appendChild(opt);
   }
 }
 
-// ================= SADHANA =================
+// ================= SADHANA SUBMIT =================
 document.getElementById("sadhana-form").addEventListener("submit", async e => {
   e.preventDefault();
 
   const date = document.getElementById("sadhana-date").value;
 
   const entry = {
-    sleepTime: sleepTime.value,
-    wakeupTime: wakeupTime.value,
-    chantingTime: chantingTime.value,
-    readingMinutes: +readingMinutes.value,
-    hearingMinutes: +hearingMinutes.value,
-    daySleepMinutes: +daySleepMinutes.value,
+    sleepTime: document.getElementById("sleep-time").value,
+    wakeupTime: document.getElementById("wakeup-time").value,
+    chantingTime: document.getElementById("chanting-time").value,
+    readingMinutes: Number(document.getElementById("reading-minutes").value),
+    hearingMinutes: Number(document.getElementById("hearing-minutes").value),
+    daySleepMinutes: Number(document.getElementById("day-sleep-minutes").value),
     submittedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
@@ -141,48 +144,48 @@ document.getElementById("sadhana-form").addEventListener("submit", async e => {
     .doc(date)
     .set(entry);
 
-  document.getElementById("sadhana-message").innerText =
+  document.getElementById("sadhana-message").textContent =
     "Sadhana submitted successfully";
-  document.getElementById("sadhana-form").reset();
-  setupDateSelect();
+  setTimeout(() => (document.getElementById("sadhana-message").textContent = ""), 2000);
+
   loadReports();
 });
 
-// ================= SCORING =================
-function mins(t) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-
+// ================= SCORING (UNCHANGED) =================
 function calculateScores(d) {
-  const s = {};
+  const t = x => {
+    const [h, m] = x.split(":").map(Number);
+    return h * 60 + m;
+  };
 
-  const sl = mins(d.sleepTime);
-  if (sl <= mins("22:30")) s.sleep = 25;
-  else if (sl <= mins("22:35")) s.sleep = 20;
-  else if (sl <= mins("22:40")) s.sleep = 15;
-  else if (sl <= mins("22:45")) s.sleep = 10;
-  else if (sl <= mins("22:50")) s.sleep = 5;
-  else if (sl <= mins("22:55")) s.sleep = 0;
-  else s.sleep = -5;
+  let s = {};
 
-  const w = mins(d.wakeupTime);
-  if (w <= mins("05:05")) s.wakeup = 25;
-  else if (w <= mins("05:10")) s.wakeup = 20;
-  else if (w <= mins("05:15")) s.wakeup = 15;
-  else if (w <= mins("05:20")) s.wakeup = 10;
-  else if (w <= mins("05:25")) s.wakeup = 5;
-  else if (w <= mins("05:30")) s.wakeup = 0;
-  else s.wakeup = -5;
+  const sleep = t(d.sleepTime);
+  s.sleep =
+    sleep <= t("22:30") ? 25 :
+    sleep <= t("22:35") ? 20 :
+    sleep <= t("22:40") ? 15 :
+    sleep <= t("22:45") ? 10 :
+    sleep <= t("22:50") ? 5 :
+    sleep <= t("22:55") ? 0 : -5;
 
-  const c = mins(d.chantingTime);
-  if (c <= mins("09:00")) s.chanting = 25;
-  else if (c <= mins("09:30")) s.chanting = 20;
-  else if (c <= mins("11:00")) s.chanting = 15;
-  else if (c <= mins("14:30")) s.chanting = 10;
-  else if (c <= mins("17:00")) s.chanting = 5;
-  else if (c <= mins("19:00")) s.chanting = 0;
-  else s.chanting = -5;
+  const wake = t(d.wakeupTime);
+  s.wakeup =
+    wake <= t("05:05") ? 25 :
+    wake <= t("05:10") ? 20 :
+    wake <= t("05:15") ? 15 :
+    wake <= t("05:20") ? 10 :
+    wake <= t("05:25") ? 5 :
+    wake <= t("05:30") ? 0 : -5;
+
+  const chant = t(d.chantingTime);
+  s.chanting =
+    chant <= t("09:00") ? 25 :
+    chant <= t("09:30") ? 20 :
+    chant <= t("11:00") ? 15 :
+    chant <= t("14:30") ? 10 :
+    chant <= t("17:00") ? 5 :
+    chant <= t("19:00") ? 0 : -5;
 
   s.daySleep = d.daySleepMinutes <= 60 ? 25 : -5;
 
@@ -195,76 +198,46 @@ function calculateScores(d) {
   return s;
 }
 
-// ================= REPORTS =================
+// ================= REPORTS (FIXED) =================
 async function loadReports() {
   const box = document.getElementById("weekly-reports-container");
-  box.innerHTML = "";
+  box.innerHTML = "Loading...";
 
   const snap = await db
     .collection("users")
     .doc(currentUser.uid)
     .collection("sadhana")
-    .orderBy("submittedAt", "desc")
+    .orderBy(firebase.firestore.FieldPath.documentId(), "desc")
     .limit(30)
     .get();
 
-  const weeks = {};
+  box.innerHTML = "";
   snap.forEach(doc => {
-    const d = new Date(doc.id);
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    const k = monday.toISOString().split("T")[0];
-    if (!weeks[k]) weeks[k] = [];
-    weeks[k].push({ date: doc.id, ...doc.data() });
+    const d = doc.data();
+    const div = document.createElement("div");
+    div.textContent = `${doc.id} — Score: ${d.totalScore}`;
+    box.appendChild(div);
   });
-
-  Object.keys(weeks)
-    .sort()
-    .reverse()
-    .forEach((w, i) => {
-      const total = weeks[w].reduce((a, x) => a + x.totalScore, 0);
-      const div = document.createElement("div");
-      div.className = "week-summary";
-      div.innerHTML = `
-        <div class="week-header ${total < 20 ? "low-score" : ""}" onclick="toggleWeek(this)">
-          <span>Week of ${w}</span>
-          <span>Total ${total}</span>
-        </div>
-        <div class="week-details ${i === 0 ? "expanded" : ""}">
-          ${weeks[w]
-            .map(
-              e =>
-                `<div class="daily-entry">
-                  <span>${e.date}</span>
-                  <span class="${e.totalScore < 0 ? "score-negative" : ""}">${e.totalScore}</span>
-                  <span>Sleep ${e.sleepTime} / Wake ${e.wakeupTime}</span>
-                </div>`
-            )
-            .join("")}
-        </div>`;
-      box.appendChild(div);
-    });
 }
 
 // ================= ADMIN =================
 async function loadAdminData() {
-  const list = document.getElementById("admin-users-list");
-  list.innerHTML = "";
+  const box = document.getElementById("admin-users-list");
+  box.innerHTML = "";
+
   const snap = await db.collection("users").get();
-  snap.forEach(d => {
-    const u = d.data();
-    const el = document.createElement("div");
-    el.className = "admin-user-card";
-    el.innerHTML = `<b>${u.name}</b><br>${u.email}<br>${u.chantingCategory}`;
-    list.appendChild(el);
+  snap.forEach(doc => {
+    const u = doc.data();
+    const d = document.createElement("div");
+    d.className = "admin-user-card";
+    d.innerHTML = `<b>${u.name}</b><br>${u.email}<br>${u.chantingCategory}`;
+    box.appendChild(d);
   });
 }
 
-// ================= UTILS =================
-window.switchTab = tab => {
+// ================= TABS =================
+window.switchTab = name => {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-  document.getElementById(tab + "-tab").classList.add("active");
+  document.getElementById(name + "-tab").classList.add("active");
 };
-
-window.toggleWeek = h => h.nextElementSibling.classList.toggle("expanded");
