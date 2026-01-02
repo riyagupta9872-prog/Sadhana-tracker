@@ -106,14 +106,20 @@ function setupDateSelect() {
   select.innerHTML = "";
 
   const today = new Date();
+
   for (let i = 0; i < 3; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const id = d.toISOString().split("T")[0];
+
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
     const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent =
-      i === 0 ? "Today" : i === 1 ? "Yesterday" : "Day Before Yesterday";
+    opt.value = dateStr;
+    opt.textContent = dateStr; // ✅ ONLY DATE, NO LABEL
     select.appendChild(opt);
   }
 }
