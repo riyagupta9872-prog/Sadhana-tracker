@@ -1,4 +1,4 @@
-// ================= FIREBASE CONFIG (REAL, WORKING) =================
+alert("JS LOADED");// ================= FIREBASE CONFIG (REAL, WORKING) =================
 const firebaseConfig = {
   apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
   authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
