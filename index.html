@@ -1,246 +1,159 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Sadhana Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sadhana Tracker</title>
+        <link rel="stylesheet" href="/style.css" />
+        <!-- Firebase SDKs from CDN -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    </head>
+    <body>
+        <div id="app">
+            <!-- Auth Section -->
+            <div id="auth-section" class="container hidden">
+                <h1>Sadhana Tracker Login</h1>
+                <form id="login-form">
+                    <input
+                        type="email"
+                        id="login-email"
+                        placeholder="Email"
+                        required
+                    />
+                    <input
+                        type="password"
+                        id="login-password"
+                        placeholder="Password"
+                        required
+                    />
+                    <button type="submit">Log In</button>
+                </form>
+                <div id="auth-error" class="error"></div>
+            </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+            <!-- Profile Setup Section -->
+            <div id="profile-section" class="container hidden">
+                <h2>First Time Setup</h2>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="profile-name" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Chanting Category (Rounds)</label>
+                        <select id="profile-chanting" required>
+                            <option value="">Select Category</option>
+                            <option value="0-4">0-4 Rounds</option>
+                            <option value="5-9">5-9 Rounds</option>
+                            <option value="10-16">10-16 Rounds</option>
+                        </select>
+                    </div>
+                    <button type="submit">Save Profile</button>
+                </form>
+            </div>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #000080;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .container {
-      width: 95%;
-      max-width: 480px;
-    }
-    .card {
-      background: white;
-      padding: 16px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      color: #000080;
-    }
-    h3 { text-align: center; margin-top: 0; }
-    input, select, button {
-      width: 100%;
-      padding: 8px;
-      margin-top: 8px;
-    }
-    button {
-      background: #000080;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    .error { color: red; text-align: center; }
-    .success { color: green; text-align: center; }
+            <!-- Dashboard Section -->
+            <div id="dashboard-section" class="hidden">
+                <header>
+                    <h2>Sadhana Tracker</h2>
+                    <div class="user-info">
+                        <span id="user-display-name"></span>
+                        <button id="logout-btn">Logout</button>
+                    </div>
+                </header>
 
-    .tabs {
-      display: flex;
-      margin-bottom: 10px;
-    }
-    .tab {
-      flex: 1;
-      text-align: center;
-      padding: 10px;
-      background: #ddd;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .tab.active {
-      background: #000080;
-      color: white;
-    }
+                <div class="tabs">
+                    <button
+                        class="tab-btn active"
+                        onclick="switchTab('sadhana')"
+                    >
+                        Sadhana Entry
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('reports')">
+                        Reports
+                    </button>
+                    <button
+                        class="tab-btn hidden"
+                        id="admin-tab-btn"
+                        onclick="switchTab('admin')"
+                    >
+                        Admin
+                    </button>
+                </div>
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 4px;
-      text-align: center;
-    }
-  </style>
-</head>
+                <!-- Sadhana Entry Tab -->
+                <div id="sadhana-tab" class="tab-content active">
+                    <form id="sadhana-form">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <select id="sadhana-date" required></select>
+                        </div>
 
-<body>
-<div class="container">
+                        <div class="form-group">
+                            <label>Sleep Time (Night)</label>
+                            <input type="time" id="sleep-time" required />
+                        </div>
 
-  <div class="card" id="loading">Checking session…</div>
+                        <div class="form-group">
+                            <label>Wake-up Time</label>
+                            <input type="time" id="wakeup-time" required />
+                        </div>
 
-  <div class="card" id="login" style="display:none;">
-    <h3>Login</h3>
-    <input id="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-    <div id="loginError" class="error"></div>
-  </div>
+                        <div class="form-group">
+                            <label>Chanting Completion Time</label>
+                            <input type="time" id="chanting-time" required />
+                        </div>
 
-  <div class="card" id="profile" style="display:none;">
-    <h3>Profile Setup</h3>
-    <input id="name" placeholder="Name">
-    <select id="category">
-      <option value="">Chanting Category</option>
-      <option value="0-4">0–4</option>
-      <option value="5-9">5–9</option>
-      <option value="10-16">10–16</option>
-    </select>
-    <button onclick="saveProfile()">Save</button>
-    <div id="profileError" class="error"></div>
-  </div>
+                        <div class="form-group">
+                            <label>Reading (Pathan) Minutes</label>
+                            <input
+                                type="number"
+                                id="reading-minutes"
+                                min="0"
+                                required
+                            />
+                        </div>
 
-  <div id="app" style="display:none;">
+                        <div class="form-group">
+                            <label>Hearing Minutes</label>
+                            <input
+                                type="number"
+                                id="hearing-minutes"
+                                min="0"
+                                required
+                            />
+                        </div>
 
-    <div class="tabs">
-      <div class="tab active" onclick="showTab('sadhana', this)">Sadhana</div>
-      <div class="tab" onclick="showTab('reports', this)">Reports</div>
-    </div>
+                        <div class="form-group">
+                            <label>Day Sleep Minutes</label>
+                            <input
+                                type="number"
+                                id="day-sleep-minutes"
+                                min="0"
+                                required
+                            />
+                        </div>
 
-    <div class="card" id="sadhanaTab">
-      <h3>Daily Sadhana</h3>
+                        <button type="submit">Submit Sadhana</button>
+                    </form>
+                    <div id="sadhana-message" class="message"></div>
+                </div>
 
-      <select id="date"></select>
-      <input type="time" id="sleep">
-      <input type="time" id="wake">
-      <input type="time" id="chant">
-      <input type="number" id="read" placeholder="Reading (min)">
-      <input type="number" id="hear" placeholder="Hearing (min)">
-      <input type="number" id="daysleep" placeholder="Day Sleep (min)">
+                <!-- Reports Tab -->
+                <div id="reports-tab" class="tab-content">
+                    <h3>My Reports</h3>
+                    <div id="weekly-reports-container"></div>
+                </div>
 
-      <button onclick="submitSadhana()">Submit</button>
-      <div id="sError" class="error"></div>
-      <div id="sSuccess" class="success"></div>
-      <button onclick="logout()">Logout</button>
-    </div>
-
-    <div class="card" id="reportsTab" style="display:none;">
-      <h3>Reports</h3>
-      <div id="reports"></div>
-    </div>
-
-  </div>
-</div>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
-  authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
-  projectId: "sadhana-tracker-b65ff",
-  appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-let uid;
-
-auth.onAuthStateChanged(async user => {
-  loading.style.display = "none";
-  if (!user) {
-    login.style.display = "block";
-    return;
-  }
-  uid = user.uid;
-  try {
-    const doc = await db.collection("users").doc(uid).get();
-    if (!doc.exists) {
-      profile.style.display = "block";
-    } else {
-      app.style.display = "block";
-      initDates();
-      loadReports();
-    }
-  } catch {
-    profile.style.display = "block";
-  }
-});
-
-function login() {
-  auth.signInWithEmailAndPassword(email.value, password.value)
-    .catch(e => loginError.innerText = e.message);
-}
-
-function logout() {
-  auth.signOut();
-}
-
-function saveProfile() {
-  if (!name.value || !category.value) {
-    profileError.innerText = "All fields required";
-    return;
-  }
-  db.collection("users").doc(uid).set({
-    name: name.value,
-    chantingCategory: category.value
-  }).then(() => location.reload());
-}
-
-function initDates() {
-  date.innerHTML = "";
-  for (let i = 0; i < 3; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const o = document.createElement("option");
-    o.value = d.toISOString().slice(0,10);
-    o.textContent = o.value;
-    date.appendChild(o);
-  }
-}
-
-function submitSadhana() {
-  const f = [sleep,wake,chant,read,hear,daysleep];
-  if (f.some(x => !x.value)) {
-    sError.innerText = "All fields compulsory";
-    return;
-  }
-  db.collection("users").doc(uid)
-    .collection("sadhana").doc(date.value)
-    .set({
-      sleep:sleep.value,
-      wake:wake.value,
-      chant:chant.value,
-      read:read.value,
-      hear:hear.value,
-      daysleep:daysleep.value
-    }).then(() => {
-      sSuccess.innerText = "Saved 🙏";
-      sError.innerText = "";
-      f.forEach(x => x.value="");
-      loadReports();
-    });
-}
-
-function loadReports() {
-  db.collection("users").doc(uid).collection("sadhana").get()
-    .then(snap => {
-      let h = "<table><tr><th>Date</th><th>Sleep</th><th>Wake</th><th>Chant</th></tr>";
-      snap.forEach(d => {
-        const r = d.data();
-        h += `<tr><td>${d.id}</td><td>${r.sleep}</td><td>${r.wake}</td><td>${r.chant}</td></tr>`;
-      });
-      h += "</table>";
-      reports.innerHTML = h;
-    });
-}
-
-function showTab(tab, el) {
-  sadhanaTab.style.display = tab==="sadhana"?"block":"none";
-  reportsTab.style.display = tab==="reports"?"block":"none";
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  el.classList.add("active");
-}
-</script>
-
-</body>
+                <!-- Admin Tab -->
+                <div id="admin-tab" class="tab-content">
+                    <h3>Admin Dashboard</h3>
+                    <div id="admin-users-list"></div>
+                </div>
+            </div>
+        </div>
+        <script src="/app.js"></script>
+    </body>
 </html>
