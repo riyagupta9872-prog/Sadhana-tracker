@@ -4,23 +4,36 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Sadhana Tracker</title>
-        <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="/style.css" />
+        <!-- Firebase SDKs from CDN -->
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     </head>
     <body>
         <div id="app">
+            <!-- Auth Section -->
             <div id="auth-section" class="container hidden">
                 <h1>Sadhana Tracker Login</h1>
                 <form id="login-form">
-                    <input type="email" id="login-email" placeholder="Email" required />
-                    <input type="password" id="login-password" placeholder="Password" required />
+                    <input
+                        type="email"
+                        id="login-email"
+                        placeholder="Email"
+                        required
+                    />
+                    <input
+                        type="password"
+                        id="login-password"
+                        placeholder="Password"
+                        required
+                    />
                     <button type="submit">Log In</button>
                 </form>
-                <div id="auth-error" class="error"></div>
+                <div id="auth-error" class="message error hidden"></div>
             </div>
 
+            <!-- Profile Setup Section -->
             <div id="profile-section" class="container hidden">
                 <h2>First Time Setup</h2>
                 <form id="profile-form">
@@ -41,6 +54,7 @@
                 </form>
             </div>
 
+            <!-- Dashboard Section -->
             <div id="dashboard-section" class="hidden">
                 <header>
                     <h2>Sadhana Tracker</h2>
@@ -51,57 +65,95 @@
                 </header>
 
                 <div class="tabs">
-                    <button class="tab-btn active" id="btn-sadhana" onclick="switchTab('sadhana')">Sadhana Entry</button>
-                    <button class="tab-btn" id="btn-reports" onclick="switchTab('reports')">Reports</button>
-                    <button class="tab-btn hidden" id="admin-tab-btn" onclick="switchTab('admin')">Admin</button>
+                    <button
+                        class="tab-btn active"
+                        onclick="switchTab('sadhana')"
+                    >
+                        Sadhana Entry
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('reports')">
+                        Reports
+                    </button>
+                    <button
+                        class="tab-btn hidden"
+                        id="admin-tab-btn"
+                        onclick="switchTab('admin')"
+                    >
+                        Admin
+                    </button>
                 </div>
 
+                <!-- Sadhana Entry Tab -->
                 <div id="sadhana-tab" class="tab-content active">
                     <form id="sadhana-form">
                         <div class="form-group">
                             <label>Date</label>
                             <select id="sadhana-date" required></select>
                         </div>
+
                         <div class="form-group">
                             <label>Sleep Time (Night)</label>
                             <input type="time" id="sleep-time" required />
                         </div>
+
                         <div class="form-group">
                             <label>Wake-up Time</label>
                             <input type="time" id="wakeup-time" required />
                         </div>
+
                         <div class="form-group">
                             <label>Chanting Completion Time</label>
                             <input type="time" id="chanting-time" required />
                         </div>
+
                         <div class="form-group">
                             <label>Reading (Pathan) Minutes</label>
-                            <input type="number" id="reading-minutes" min="0" required />
+                            <input
+                                type="number"
+                                id="reading-minutes"
+                                min="0"
+                                required
+                            />
                         </div>
+
                         <div class="form-group">
                             <label>Hearing Minutes</label>
-                            <input type="number" id="hearing-minutes" min="0" required />
+                            <input
+                                type="number"
+                                id="hearing-minutes"
+                                min="0"
+                                required
+                            />
                         </div>
+
                         <div class="form-group">
                             <label>Day Sleep Minutes</label>
-                            <input type="number" id="day-sleep-minutes" min="0" required />
+                            <input
+                                type="number"
+                                id="day-sleep-minutes"
+                                min="0"
+                                required
+                            />
                         </div>
+
                         <button type="submit">Submit Sadhana</button>
                     </form>
-                    <div id="sadhana-message" class="message"></div>
+                    <div id="sadhana-message" class="message hidden"></div>
                 </div>
 
+                <!-- Reports Tab -->
                 <div id="reports-tab" class="tab-content">
-                    <h3>My Reports (Current Week)</h3>
+                    <h3>My Reports</h3>
                     <div id="weekly-reports-container"></div>
                 </div>
 
+                <!-- Admin Tab -->
                 <div id="admin-tab" class="tab-content">
                     <h3>Admin Dashboard</h3>
                     <div id="admin-users-list"></div>
                 </div>
             </div>
         </div>
-        <script src="script.js"></script>
+        <script src="/app.js"></script>
     </body>
 </html>
