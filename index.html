@@ -1,183 +1,411 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Sadhana Tracker</title>
-        <!-- Corrected path for GitHub Pages sub-directory -->
-        <link rel="stylesheet" href="/Sadhana-tracker/style.css" /> 
-        <!-- Firebase SDKs from CDN -->
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    </head>
-    <body>
-        <div id="app">
-            <!-- Auth Section -->
-            <div id="auth-section" class="container hidden">
-                <h1>Sadhana Tracker Login</h1>
-                <form id="login-form">
-                    <input
-                        type="email"
-                        id="login-email"
-                        placeholder="Email"
-                        required
-                    />
-                    <input
-                        type="password"
-                        id="login-password"
-                        placeholder="Password"
-                        required
-                    />
-                    <button type="submit">Log In</button>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sadhana Tracker | Official</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --light: #f4f7f6;
+            --white: #ffffff;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--light); margin: 0; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .hidden { display: none !important; }
+
+        /* Auth & Profile Forms */
+        .card { background: var(--white); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { background: var(--secondary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { opacity: 0.9; }
+        button.danger { background: var(--danger); }
+        button.secondary-btn { background: #95a5a6; }
+
+        /* Dashboard & Tabs */
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; }
+        .tab-btn { background: #ddd; color: #333; padding: 10px 20px; border-radius: 20px; white-space: nowrap; width: auto; }
+        .tab-btn.active { background: var(--secondary); color: white; }
+
+        /* Reports UI */
+        .week-card { background: white; margin-bottom: 15px; border-radius: 8px; border-left: 5px solid var(--secondary); overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .week-header { padding: 15px; background: #f9f9f9; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; }
+        .week-content { padding: 15px; border-top: 1px solid #eee; }
+        .day-row { padding: 10px 0; border-bottom: 1px dotted #ddd; }
+        .day-row:last-child { border-bottom: none; }
+
+        /* Admin Table */
+        .admin-table-container { overflow-x: auto; }
+        .admin-table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        .admin-table th, .admin-table td { border: 1px solid #ddd; padding: 12px; font-size: 14px; }
+        .admin-table th { background: #f2f2f2; text-align: center; }
+        
+        /* Manage Users List */
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; background: white; }
+        .user-info small { color: #666; }
+        .user-actions { display: flex; gap: 5px; }
+        .user-actions button { width: auto; padding: 5px 12px; font-size: 13px; }
+
+        /* Modal (The Separate Room) */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; width: 90%; max-width: 800px; max-height: 85vh; padding: 25px; border-radius: 12px; position: relative; overflow-y: auto; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 30px; cursor: pointer; color: #999; }
+
+        @media (max-width: 600px) {
+            .header { flex-direction: column; text-align: center; }
+            .user-item { flex-direction: column; gap: 10px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <section id="auth-section" class="card">
+        <h2 style="text-align: center;">Sadhana Tracker Login</h2>
+        <form id="login-form">
+            <input type="email" id="login-email" placeholder="Email Address" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+        <p id="auth-error" class="message danger hidden"></p>
+    </section>
+
+    <section id="profile-section" class="card hidden">
+        <h2>Complete Your Profile</h2>
+        <form id="profile-form">
+            <input type="text" id="profile-name" placeholder="Your Full Name" required>
+            <select id="profile-chanting" required>
+                <option value="">Select Chanting Category</option>
+                <option value="0-4 Rounds">0-4 Rounds</option>
+                <option value="5-9 Rounds">5-9 Rounds</option>
+                <option value="10-16 Rounds">10-16 Rounds</option>
+            </select>
+            <button type="submit">Save & Continue</button>
+        </form>
+    </section>
+
+    <section id="dashboard-section" class="hidden">
+        <div class="header">
+            <div>
+                <h1 style="margin:0;">Sadhana Portal</h1>
+                <span id="user-display-name" style="color: var(--secondary); font-weight: bold;"></span>
+            </div>
+            <button id="logout-btn" class="secondary-btn" style="width: auto;">Logout</button>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('sadhana')">Daily Entry</button>
+            <button class="tab-btn" onclick="switchTab('reports')">My Reports</button>
+            <button class="tab-btn hidden" id="admin-tab-btn" onclick="switchTab('admin')">Admin Panel</button>
+        </div>
+
+        <div id="sadhana-tab" class="tab-content">
+            <div class="card">
+                <h3>Submit Daily Sadhana</h3>
+                <form id="sadhana-form">
+                    <label>Date:</label>
+                    <select id="sadhana-date"></select>
+                    
+                    <label>To Bed (Last Night):</label>
+                    <input type="time" id="sleep-time" value="22:30" required>
+                    
+                    <label>Woke Up:</label>
+                    <input type="time" id="wakeup-time" value="05:00" required>
+                    
+                    <label>Finished Chanting By:</label>
+                    <input type="time" id="chanting-time" value="08:00" required>
+
+                    <label>Reading (Minutes):</label>
+                    <input type="number" id="reading-minutes" placeholder="e.g. 30" required>
+
+                    <label>Hearing (Minutes):</label>
+                    <input type="number" id="hearing-minutes" placeholder="e.g. 30" required>
+
+                    <label>Day Sleep (Minutes):</label>
+                    <input type="number" id="day-sleep-minutes" value="0" required>
+
+                    <button type="submit">Submit Entry</button>
                 </form>
-                <div id="auth-error" class="message error hidden"></div>
             </div>
+        </div>
 
-            <!-- Profile Setup Section -->
-            <div id="profile-section" class="container hidden">
-                <h2>First Time Setup</h2>
-                <form id="profile-form">
-                    <div class="form-group">
-                        <label>Full Name</label>
-                        <input type="text" id="profile-name" required />
-                    </div>
-                    <div class="form-group">
-                        <label>Chanting Category (Rounds)</label>
-                        <select id="profile-chanting" required>
-                            <option value="">Select Category</option>
-                            <option value="0-4">0-4 Rounds</option>
-                            <option value="5-9">5-9 Rounds</option>
-                            <option value="10-16">10-16 Rounds</option>
-                        </select>
-                    </div>
-                    <button type="submit">Save Profile</button>
-                </form>
+        <div id="reports-tab" class="tab-content hidden">
+            <div id="weekly-reports-container"></div>
+        </div>
+
+        <div id="admin-tab" class="tab-content hidden">
+            <div class="card">
+                <h3>Comparative Weekly Report</h3>
+                <div class="admin-table-container" id="admin-comparative-reports-container"></div>
             </div>
-
-            <!-- Dashboard Section -->
-            <div id="dashboard-section" class="hidden">
-                <header>
-                    <h2>Sadhana Tracker</h2>
-                    <div class="user-info">
-                        <span id="user-display-name"></span>
-                        <button id="logout-btn">Logout</button>
-                    </div>
-                </header>
-
-                <div class="tabs">
-                    <button
-                        class="tab-btn active"
-                        onclick="switchTab('sadhana')"
-                    >
-                        Sadhana Entry
-                    </button>
-                    <button class="tab-btn" onclick="switchTab('reports')">
-                        Reports
-                    </button>
-                    <button
-                        class="tab-btn hidden"
-                        id="admin-tab-btn"
-                        onclick="switchTab('admin')"
-                    >
-                        Admin
-                    </button>
-                </div>
-
-                <!-- Sadhana Entry Tab -->
-                <div id="sadhana-tab" class="tab-content active">
-                    <form id="sadhana-form">
-                        <div class="form-group">
-                            <label>Date</label>
-                            <select id="sadhana-date" required></select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Sleep Time (Night)</label>
-                            <input type="time" id="sleep-time" required />
-                        </div>
-
-                        <div class="form-group">
-                            <label>Wake-up Time</label>
-                            <input type="time" id="wakeup-time" required />
-                        </div>
-
-                        <div class="form-group">
-                            <label>Chanting Completion Time</label>
-                            <input type="time" id="chanting-time" required />
-                        </div>
-
-                        <div class="form-group">
-                            <label>Reading (Pathan) Minutes</label>
-                            <input
-                                type="number"
-                                id="reading-minutes"
-                                min="0"
-                                required
-                            />
-                        </div>
-
-                        <div class="form-group">
-                            <label>Hearing Minutes</label>
-                            <input
-                                type="number"
-                                id="hearing-minutes"
-                                min="0"
-                                required
-                            />
-                        </div>
-
-                        <div class="form-group">
-                            <label>Day Sleep Minutes</label>
-                            <input
-                                type="number"
-                                id="day-sleep-minutes"
-                                min="0"
-                                required
-                            />
-                        </div>
-
-                        <button type="submit">Submit Sadhana</button>
-                    </form>
-                    <div id="sadhana-message" class="message hidden"></div>
-                </div>
-
-                <!-- Reports Tab -->
-                <div id="reports-tab" class="tab-content">
-                    <h3>My Reports <button id="download-my-report-btn" class="admin-action-btn">Download My Report</button></h3>
-                    <div id="weekly-reports-container"></div>
-                </div>
-
-                <!-- Admin Tab -->
-                <div id="admin-tab" class="tab-content">
-                    <h3>Admin Dashboard</h3>
-
-                    <div class="admin-controls-section">
-                        <h4>Manage Users</h4>
-                        <ul id="admin-users-list" class="admin-user-list"></ul>
-                        <hr>
-                        <div id="admin-individual-user-report-section" class="admin-individual-report-container hidden">
-                            <!-- Individual user report will be displayed here -->
-                        </div>
-                    </div>
-
-                    <div class="admin-controls-section">
-                        <h4>Comparative Reports 
-                            <button id="download-all-reports-btn" class="admin-action-btn">Download All Reports</button>
-                        </h4>
-                        <div id="admin-comparative-reports-container">
-                            <p>Loading comparative reports...</p>
-                        </div>
-                    </div>
-
-                    <div class="admin-controls-section">
-                        <h4>Future Features: Dynamic Settings</h4>
-                        <p>Controls for changing Chanting Categories or Scoring Logic will be implemented here in the future.</p>
-                    </div>
-
-                </div>
+            <div class="card">
+                <h3>Manage Devotees</h3>
+                <div id="admin-users-list"></div>
             </div>
-            <!-- Corrected path for GitHub Pages sub-directory -->
-            <script src="/Sadhana-tracker/app.js"></script> 
-    </body>
+        </div>
+    </section>
+</div>
+
+<div id="user-report-modal" class="modal hidden">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeUserModal()">&times;</span>
+        <h2 id="modal-user-name">Devotee Report</h2>
+        <hr>
+        <div id="modal-report-container"></div>
+    </div>
+</div>
+
+<script>
+// --- FIREBASE INITIALIZATION ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
+  authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
+  projectId: "sadhana-tracker-b65ff",
+  storageBucket: "sadhana-tracker-b65ff.firebasestorage.app",
+  messagingSenderId: "926961218888",
+  appId: "1:926961218888:web:db8f12ef8256d13f036f7d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+let userProfile = null;
+let activeListener = null;
+
+// --- UTILITIES & DATE LOGIC (Sun-Sat) ---
+function getWeekInfo(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDay(); // 0 is Sunday
+    const sun = new Date(d); sun.setDate(d.getDate() - day);
+    const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+    const opt = { day: '2-digit', month: 'short' };
+    return {
+        sunStr: sun.toISOString().split('T')[0],
+        satStr: sat.toISOString().split('T')[0],
+        label: `(${sun.toLocaleDateString('en-GB', opt)} - ${sat.toLocaleDateString('en-GB', opt)})`
+    };
+}
+
+// --- SCORING SYSTEM ---
+function calculateSadhanaMarks(data) {
+    const getM = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const s = {};
+    // Bed: 22:30 | Wake: 05:05 | Chant: 09:00 (Step: 5m for sleep/wake, 30m for chant)
+    const sl = getM(data.sleepTime);
+    s.sleep = sl <= getM("22:30") ? 25 : (sl <= getM("22:55") ? 25 - (Math.ceil((sl - getM("22:30"))/5)*5) : -5);
+    const wk = getM(data.wakeupTime);
+    s.wakeup = wk <= getM("05:05") ? 25 : (wk <= getM("05:30") ? 25 - (Math.ceil((wk - getM("05:05"))/5)*5) : -5);
+    const ch = getM(data.chantingTime);
+    s.chanting = ch <= getM("09:00") ? 25 : (ch <= getM("19:00") ? 25 - (Math.ceil((ch - getM("09:00"))/30)*5) : -5);
+
+    s.daySleep = data.daySleepMinutes <= 60 ? 25 : -5;
+    s.reading = data.readingMinutes >= 30 ? 25 : (data.readingMinutes >= 5 ? (Math.floor(data.readingMinutes/5)-1)*5 : -5);
+    s.hearing = data.hearingMinutes >= 30 ? 25 : (data.hearingMinutes >= 5 ? (Math.floor(data.hearingMinutes/5)-1)*5 : -5);
+    return s;
+}
+
+// --- CORE APP FLOW ---
+auth.onAuthStateChanged(async (user) => {
+    currentUser = user;
+    if (user) {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+            userProfile = doc.data();
+            document.getElementById('user-display-name').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
+            if (userProfile.role === 'admin') document.getElementById('admin-tab-btn').classList.remove('hidden');
+            showSection('dashboard');
+            switchTab('sadhana');
+            setupDateSelect();
+        } else { showSection('profile'); }
+    } else { showSection('auth'); }
+});
+
+function showSection(id) {
+    ['auth', 'profile', 'dashboard'].forEach(s => document.getElementById(s + '-section').classList.add('hidden'));
+    document.getElementById(id + '-section').classList.remove('hidden');
+}
+
+// Login & Profile Actions
+document.getElementById('login-form').addEventListener('submit', e => {
+    e.preventDefault();
+    auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value)
+        .catch(err => alert(err.message));
+});
+
+document.getElementById('profile-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const pData = { 
+        name: document.getElementById('profile-name').value, 
+        chantingCategory: document.getElementById('profile-chanting').value,
+        role: 'user', email: currentUser.email
+    };
+    await db.collection('users').doc(currentUser.uid).set(pData);
+    location.reload();
+});
+
+document.getElementById('logout-btn').onclick = () => auth.signOut();
+
+// --- SADHANA SUBMISSION ---
+function setupDateSelect() {
+    const s = document.getElementById('sadhana-date'); s.innerHTML = '';
+    for(let i=0; i<3; i++) {
+        const d = new Date(); d.setDate(d.getDate()-i);
+        const iso = d.toISOString().split('T')[0];
+        const opt = document.createElement('option');
+        opt.value = iso; opt.textContent = i===0 ? "Today" : i===1 ? "Yesterday" : iso;
+        s.appendChild(opt);
+    }
+}
+
+document.getElementById('sadhana-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const date = document.getElementById('sadhana-date').value;
+    const entry = {
+        sleepTime: document.getElementById('sleep-time').value,
+        wakeupTime: document.getElementById('wakeup-time').value,
+        chantingTime: document.getElementById('chanting-time').value,
+        readingMinutes: parseInt(document.getElementById('reading-minutes').value),
+        hearingMinutes: parseInt(document.getElementById('hearing-minutes').value),
+        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value),
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    entry.scores = calculateSadhanaMarks(entry);
+    entry.totalScore = Object.values(entry.scores).reduce((a,b) => a+b, 0);
+    await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
+    alert("Sadhana Saved!");
+});
+
+// --- REPORTS (Live onSnapshot) ---
+function loadReports(userId, containerId) {
+    const container = document.getElementById(containerId);
+    if (activeListener) activeListener();
+    activeListener = db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt','desc').onSnapshot(snap => {
+        const entries = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        const weeks = {};
+        entries.forEach(e => {
+            const w = getWeekInfo(e.id);
+            if(!weeks[w.sunStr]) weeks[w.sunStr] = { range: w.label, data: [], total: 0 };
+            weeks[w.sunStr].data.push(e);
+            weeks[w.sunStr].total += e.totalScore;
+        });
+        container.innerHTML = '';
+        Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(key => {
+            const week = weeks[key];
+            const div = document.createElement('div');
+            div.className = 'week-card';
+            div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                <span>Week ${week.range}</span><span>Weekly Score: ${week.total}</span></div>
+                <div class="week-content hidden">${week.data.map(e => `<div class="day-row">
+                <strong>${e.id} | Score: ${e.totalScore}</strong><br>
+                <small>Bed: ${e.sleepTime}(${e.scores.sleep}) | Wake: ${e.wakeupTime}(${e.scores.wakeup}) | Chant: ${e.chantingTime}(${e.scores.chanting})</small>
+                </div>`).join('')}</div>`;
+            container.appendChild(div);
+        });
+    });
+}
+
+// --- ADMIN PANEL FUNCTIONS ---
+async function loadAdminPanel() {
+    const tableContainer = document.getElementById('admin-comparative-reports-container');
+    const usersList = document.getElementById('admin-users-list');
+    tableContainer.innerHTML = 'Loading...';
+    usersList.innerHTML = '';
+
+    const weeks = [];
+    for(let i=0; i<4; i++) {
+        const d = new Date(); d.setDate(d.getDate() - (i*7));
+        weeks.push(getWeekInfo(d));
+    }
+    weeks.reverse();
+
+    const usersSnap = await db.collection('users').get();
+    let table = `<table class="admin-table"><thead><tr><th>Name (Category)</th>
+        ${weeks.map((w,i) => `<th>Week ${i+1}<br><small>${w.range}</small></th>`).join('')}</tr></thead><tbody>`;
+
+    for (const uDoc of usersSnap.docs) {
+        const u = uDoc.data();
+        const uId = uDoc.id;
+        table += `<tr><td><strong>${u.name}</strong><br><small>${u.chantingCategory}</small></td>`;
+        
+        const sSnap = await uDoc.ref.collection('sadhana').get();
+        const sEntries = sSnap.docs.map(d => ({date: d.id, score: d.data().totalScore || 0}));
+        
+        weeks.forEach(w => {
+            const total = sEntries.filter(e => e.date >= w.sunStr && e.date <= w.satStr).reduce((a,b) => a+b.score, 0);
+            table += `<td style="text-align:center">${total}</td>`;
+        });
+        table += `</tr>`;
+
+        // Manage User Item
+        const uItem = document.createElement('div'); uItem.className = 'user-item';
+        uItem.innerHTML = `<div class="user-info"><strong>${u.name} (${u.chantingCategory})</strong><br><small>${u.email}</small></div>
+            <div class="user-actions">
+                <button onclick="openUserModal('${uId}', '${u.name}')">View</button>
+                <button onclick="downloadExcel('${uId}', '${u.name}')">Excel</button>
+                <button class="danger" onclick="toggleRole('${uId}', '${u.role}')">${u.role === 'admin' ? 'Revoke' : 'Admin'}</button>
+            </div>`;
+        usersList.appendChild(uItem);
+    }
+    tableContainer.innerHTML = table + '</tbody></table>';
+}
+
+// --- ROLE MANAGEMENT & EXCEL ---
+async function toggleRole(id, current) {
+    const next = current === 'admin' ? 'user' : 'admin';
+    if(confirm(`Are you sure you want to make this user a ${next}?`)) {
+        await db.collection('users').doc(id).update({ role: next });
+        loadAdminPanel();
+    }
+}
+
+async function downloadExcel(id, name) {
+    const snap = await db.collection('users').doc(id).collection('sadhana').orderBy('submittedAt','asc').get();
+    const rows = snap.docs.map(d => {
+        const e = d.data();
+        return { "Date": d.id, "Bed": e.sleepTime, "Wake": e.wakeupTime, "Chant": e.chantingTime, "Total": e.totalScore };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "History");
+    XLSX.writeFile(wb, `${name}_Sadhana.xlsx`);
+}
+
+// --- TAB & MODAL NAVIGATION ---
+window.switchTab = (t) => {
+    document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    
+    document.querySelector(`button[onclick*="switchTab('${t}')"]`).classList.add('active');
+    document.getElementById(t + '-tab').classList.remove('hidden');
+    
+    if(t === 'reports') loadReports(currentUser.uid, 'weekly-reports-container');
+    if(t === 'admin') loadAdminPanel();
+};
+
+window.openUserModal = (id, name) => {
+    document.getElementById('user-report-modal').classList.remove('hidden');
+    document.getElementById('modal-user-name').textContent = name + "'s History";
+    loadReports(id, 'modal-report-container');
+};
+
+window.closeUserModal = () => {
+    document.getElementById('user-report-modal').classList.add('hidden');
+    if (activeListener) activeListener();
+};
+</script>
+
+</body>
 </html>
