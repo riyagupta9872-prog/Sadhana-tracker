@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Sadhana Tracker</title>
-        <!-- FIX: Using absolute path for GitHub Pages sub-directory -->
+        <!-- Corrected path for GitHub Pages sub-directory -->
         <link rel="stylesheet" href="/Sadhana-tracker/style.css" /> 
         <!-- Firebase SDKs from CDN -->
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -144,17 +144,40 @@
 
                 <!-- Reports Tab -->
                 <div id="reports-tab" class="tab-content">
-                    <h3>My Reports</h3>
+                    <h3>My Reports <button id="download-my-report-btn" class="admin-action-btn">Download My Report</button></h3>
                     <div id="weekly-reports-container"></div>
                 </div>
 
                 <!-- Admin Tab -->
                 <div id="admin-tab" class="tab-content">
                     <h3>Admin Dashboard</h3>
-                    <div id="admin-users-list"></div>
+
+                    <div class="admin-controls-section">
+                        <h4>Manage Users</h4>
+                        <ul id="admin-users-list" class="admin-user-list"></ul>
+                        <hr>
+                        <div id="admin-individual-user-report-section" class="admin-individual-report-container hidden">
+                            <!-- Individual user report will be displayed here -->
+                        </div>
+                    </div>
+
+                    <div class="admin-controls-section">
+                        <h4>Comparative Reports 
+                            <button id="download-all-reports-btn" class="admin-action-btn">Download All Reports</button>
+                        </h4>
+                        <div id="admin-comparative-reports-container">
+                            <p>Loading comparative reports...</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-controls-section">
+                        <h4>Future Features: Dynamic Settings</h4>
+                        <p>Controls for changing Chanting Categories or Scoring Logic will be implemented here in the future.</p>
+                    </div>
+
                 </div>
             </div>
-            <!-- FIX: Using absolute path for GitHub Pages sub-directory -->
+            <!-- Corrected path for GitHub Pages sub-directory -->
             <script src="/Sadhana-tracker/app.js"></script> 
     </body>
 </html>
