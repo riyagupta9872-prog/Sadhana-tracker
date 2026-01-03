@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sadhana Tracker | Official</title>
+    <title>Sadhana Tracker | Final Stable Version</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
         :root {
@@ -21,21 +21,21 @@
             --white: #ffffff;
         }
 
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--light); margin: 0; color: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; color: #333; }
         .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .hidden { display: none !important; }
 
-        /* Auth & Profile Forms */
-        .card { background: var(--white); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        /* Cards & Forms */
+        .card { background: var(--white); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
         input, select, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
         button { background: var(--secondary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
         button:hover { opacity: 0.9; }
         button.danger { background: var(--danger); }
         button.secondary-btn { background: #95a5a6; }
 
-        /* Dashboard & Tabs */
+        /* Navigation */
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
-        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; }
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
         .tab-btn { background: #ddd; color: #333; padding: 10px 20px; border-radius: 20px; white-space: nowrap; width: auto; }
         .tab-btn.active { background: var(--secondary); color: white; }
 
@@ -43,30 +43,23 @@
         .week-card { background: white; margin-bottom: 15px; border-radius: 8px; border-left: 5px solid var(--secondary); overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .week-header { padding: 15px; background: #f9f9f9; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; }
         .week-content { padding: 15px; border-top: 1px solid #eee; }
-        .day-row { padding: 10px 0; border-bottom: 1px dotted #ddd; }
+        .day-row { padding: 12px 0; border-bottom: 1px dotted #ddd; line-height: 1.6; }
         .day-row:last-child { border-bottom: none; }
 
-        /* Admin Table */
+        /* Admin Styles */
         .admin-table-container { overflow-x: auto; }
         .admin-table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
         .admin-table th, .admin-table td { border: 1px solid #ddd; padding: 12px; font-size: 14px; }
         .admin-table th { background: #f2f2f2; text-align: center; }
         
-        /* Manage Users List */
         .user-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; background: white; }
-        .user-info small { color: #666; }
-        .user-actions { display: flex; gap: 5px; }
-        .user-actions button { width: auto; padding: 5px 12px; font-size: 13px; }
+        .user-actions { display: flex; gap: 8px; }
+        .user-actions button { width: auto; padding: 6px 15px; font-size: 13px; margin: 0; }
 
-        /* Modal (The Separate Room) */
+        /* Modal Settings */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: white; width: 90%; max-width: 800px; max-height: 85vh; padding: 25px; border-radius: 12px; position: relative; overflow-y: auto; }
-        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 30px; cursor: pointer; color: #999; }
-
-        @media (max-width: 600px) {
-            .header { flex-direction: column; text-align: center; }
-            .user-item { flex-direction: column; gap: 10px; text-align: center; }
-        }
+        .modal-content { background: white; width: 95%; max-width: 800px; max-height: 90vh; padding: 25px; border-radius: 12px; position: relative; overflow-y: auto; }
+        .close-btn { position: absolute; top: 10px; right: 20px; font-size: 35px; cursor: pointer; color: #999; }
     </style>
 </head>
 <body>
@@ -79,28 +72,27 @@
             <input type="password" id="login-password" placeholder="Password" required>
             <button type="submit">Login</button>
         </form>
-        <p id="auth-error" class="message danger hidden"></p>
     </section>
 
     <section id="profile-section" class="card hidden">
         <h2>Complete Your Profile</h2>
         <form id="profile-form">
-            <input type="text" id="profile-name" placeholder="Your Full Name" required>
+            <input type="text" id="profile-name" placeholder="Full Name" required>
             <select id="profile-chanting" required>
                 <option value="">Select Chanting Category</option>
                 <option value="0-4 Rounds">0-4 Rounds</option>
                 <option value="5-9 Rounds">5-9 Rounds</option>
                 <option value="10-16 Rounds">10-16 Rounds</option>
             </select>
-            <button type="submit">Save & Continue</button>
+            <button type="submit">Save Profile</button>
         </form>
     </section>
 
     <section id="dashboard-section" class="hidden">
         <div class="header">
             <div>
-                <h1 style="margin:0;">Sadhana Portal</h1>
-                <span id="user-display-name" style="color: var(--secondary); font-weight: bold;"></span>
+                <h2 id="user-welcome" style="margin:0;">Sadhana Portal</h2>
+                <small id="user-display-name" style="color: var(--secondary); font-weight: bold;"></small>
             </div>
             <button id="logout-btn" class="secondary-btn" style="width: auto;">Logout</button>
         </div>
@@ -127,13 +119,13 @@
                     <label>Finished Chanting By:</label>
                     <input type="time" id="chanting-time" value="08:00" required>
 
-                    <label>Reading (Minutes):</label>
-                    <input type="number" id="reading-minutes" placeholder="e.g. 30" required>
+                    <label>Reading (Mins):</label>
+                    <input type="number" id="reading-minutes" value="30" required>
 
-                    <label>Hearing (Minutes):</label>
-                    <input type="number" id="hearing-minutes" placeholder="e.g. 30" required>
+                    <label>Hearing (Mins):</label>
+                    <input type="number" id="hearing-minutes" value="30" required>
 
-                    <label>Day Sleep (Minutes):</label>
+                    <label>Day Sleep (Mins):</label>
                     <input type="number" id="day-sleep-minutes" value="0" required>
 
                     <button type="submit">Submit Entry</button>
@@ -147,7 +139,7 @@
 
         <div id="admin-tab" class="tab-content hidden">
             <div class="card">
-                <h3>Comparative Weekly Report</h3>
+                <h3>Comparative Weekly Report (Last 4 Weeks)</h3>
                 <div class="admin-table-container" id="admin-comparative-reports-container"></div>
             </div>
             <div class="card">
@@ -168,7 +160,7 @@
 </div>
 
 <script>
-// --- FIREBASE INITIALIZATION ---
+// --- FIREBASE INIT ---
 const firebaseConfig = {
   apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
   authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -186,10 +178,10 @@ let currentUser = null;
 let userProfile = null;
 let activeListener = null;
 
-// --- UTILITIES & DATE LOGIC (Sun-Sat) ---
+// --- UTILITIES ---
 function getWeekInfo(dateStr) {
     const d = new Date(dateStr);
-    const day = d.getDay(); // 0 is Sunday
+    const day = d.getDay(); 
     const sun = new Date(d); sun.setDate(d.getDate() - day);
     const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
     const opt = { day: '2-digit', month: 'short' };
@@ -201,31 +193,29 @@ function getWeekInfo(dateStr) {
 }
 
 // --- SCORING SYSTEM ---
-function calculateSadhanaMarks(data) {
+function calculateMarks(data) {
     const getM = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const s = {};
-    // Bed: 22:30 | Wake: 05:05 | Chant: 09:00 (Step: 5m for sleep/wake, 30m for chant)
     const sl = getM(data.sleepTime);
     s.sleep = sl <= getM("22:30") ? 25 : (sl <= getM("22:55") ? 25 - (Math.ceil((sl - getM("22:30"))/5)*5) : -5);
     const wk = getM(data.wakeupTime);
     s.wakeup = wk <= getM("05:05") ? 25 : (wk <= getM("05:30") ? 25 - (Math.ceil((wk - getM("05:05"))/5)*5) : -5);
     const ch = getM(data.chantingTime);
     s.chanting = ch <= getM("09:00") ? 25 : (ch <= getM("19:00") ? 25 - (Math.ceil((ch - getM("09:00"))/30)*5) : -5);
-
     s.daySleep = data.daySleepMinutes <= 60 ? 25 : -5;
     s.reading = data.readingMinutes >= 30 ? 25 : (data.readingMinutes >= 5 ? (Math.floor(data.readingMinutes/5)-1)*5 : -5);
     s.hearing = data.hearingMinutes >= 30 ? 25 : (data.hearingMinutes >= 5 ? (Math.floor(data.hearingMinutes/5)-1)*5 : -5);
     return s;
 }
 
-// --- CORE APP FLOW ---
+// --- APP AUTH ---
 auth.onAuthStateChanged(async (user) => {
     currentUser = user;
     if (user) {
         const doc = await db.collection('users').doc(user.uid).get();
         if (doc.exists) {
             userProfile = doc.data();
-            document.getElementById('user-display-name').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
+            document.getElementById('user-display-name').textContent = `${userProfile.name} | Category: ${userProfile.chantingCategory}`;
             if (userProfile.role === 'admin') document.getElementById('admin-tab-btn').classList.remove('hidden');
             showSection('dashboard');
             switchTab('sadhana');
@@ -239,13 +229,14 @@ function showSection(id) {
     document.getElementById(id + '-section').classList.remove('hidden');
 }
 
-// Login & Profile Actions
+// Login
 document.getElementById('login-form').addEventListener('submit', e => {
     e.preventDefault();
     auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value)
         .catch(err => alert(err.message));
 });
 
+// Profile
 document.getElementById('profile-form').addEventListener('submit', async e => {
     e.preventDefault();
     const pData = { 
@@ -259,14 +250,15 @@ document.getElementById('profile-form').addEventListener('submit', async e => {
 
 document.getElementById('logout-btn').onclick = () => auth.signOut();
 
-// --- SADHANA SUBMISSION ---
+// --- SADHANA SUBMISSION (Date Fix) ---
 function setupDateSelect() {
     const s = document.getElementById('sadhana-date'); s.innerHTML = '';
-    for(let i=0; i<3; i++) {
+    for(let i=0; i<4; i++) {
         const d = new Date(); d.setDate(d.getDate()-i);
         const iso = d.toISOString().split('T')[0];
         const opt = document.createElement('option');
-        opt.value = iso; opt.textContent = i===0 ? "Today" : i===1 ? "Yesterday" : iso;
+        opt.value = iso; 
+        opt.textContent = iso; // Fixed: Literal ISO date
         s.appendChild(opt);
     }
 }
@@ -283,13 +275,13 @@ document.getElementById('sadhana-form').addEventListener('submit', async e => {
         daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value),
         submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    entry.scores = calculateSadhanaMarks(entry);
+    entry.scores = calculateMarks(entry);
     entry.totalScore = Object.values(entry.scores).reduce((a,b) => a+b, 0);
     await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
-    alert("Sadhana Saved!");
+    alert("Sadhana Saved Successfully!");
 });
 
-// --- REPORTS (Live onSnapshot) ---
+// --- REPORTS (Reading/Hearing/DaySleep Fix) ---
 function loadReports(userId, containerId) {
     const container = document.getElementById(containerId);
     if (activeListener) activeListener();
@@ -300,7 +292,7 @@ function loadReports(userId, containerId) {
             const w = getWeekInfo(e.id);
             if(!weeks[w.sunStr]) weeks[w.sunStr] = { range: w.label, data: [], total: 0 };
             weeks[w.sunStr].data.push(e);
-            weeks[w.sunStr].total += e.totalScore;
+            weeks[w.sunStr].total += (e.totalScore || 0);
         });
         container.innerHTML = '';
         Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(key => {
@@ -310,19 +302,22 @@ function loadReports(userId, containerId) {
             div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
                 <span>Week ${week.range}</span><span>Weekly Score: ${week.total}</span></div>
                 <div class="week-content hidden">${week.data.map(e => `<div class="day-row">
-                <strong>${e.id} | Score: ${e.totalScore}</strong><br>
-                <small>Bed: ${e.sleepTime}(${e.scores.sleep}) | Wake: ${e.wakeupTime}(${e.scores.wakeup}) | Chant: ${e.chantingTime}(${e.scores.chanting})</small>
+                <strong>${e.id} | Daily Score: ${e.totalScore}</strong><br>
+                <small>
+                    Bed: ${e.sleepTime} (${e.scores.sleep}) | Wake: ${e.wakeupTime} (${e.scores.wakeup}) | Chant: ${e.chantingTime} (${e.scores.chanting})<br>
+                    Reading: ${e.readingMinutes}m (${e.scores.reading}) | Hearing: ${e.hearingMinutes}m (${e.scores.hearing}) | Day Sleep: ${e.daySleepMinutes}m (${e.scores.daySleep})
+                </small>
                 </div>`).join('')}</div>`;
             container.appendChild(div);
         });
     });
 }
 
-// --- ADMIN PANEL FUNCTIONS ---
+// --- ADMIN FUNCTIONS (Undefined Date Fix) ---
 async function loadAdminPanel() {
     const tableContainer = document.getElementById('admin-comparative-reports-container');
     const usersList = document.getElementById('admin-users-list');
-    tableContainer.innerHTML = 'Loading...';
+    tableContainer.innerHTML = 'Recalculating...';
     usersList.innerHTML = '';
 
     const weeks = [];
@@ -334,7 +329,7 @@ async function loadAdminPanel() {
 
     const usersSnap = await db.collection('users').get();
     let table = `<table class="admin-table"><thead><tr><th>Name (Category)</th>
-        ${weeks.map((w,i) => `<th>Week ${i+1}<br><small>${w.range}</small></th>`).join('')}</tr></thead><tbody>`;
+        ${weeks.map((w,i) => `<th>Week ${i+1}<br><small>${w.label}</small></th>`).join('')}</tr></thead><tbody>`;
 
     for (const uDoc of usersSnap.docs) {
         const u = uDoc.data();
@@ -350,9 +345,8 @@ async function loadAdminPanel() {
         });
         table += `</tr>`;
 
-        // Manage User Item
         const uItem = document.createElement('div'); uItem.className = 'user-item';
-        uItem.innerHTML = `<div class="user-info"><strong>${u.name} (${u.chantingCategory})</strong><br><small>${u.email}</small></div>
+        uItem.innerHTML = `<div class="user-info"><strong>${u.name}</strong> (${u.chantingCategory})<br><small>${u.email}</small></div>
             <div class="user-actions">
                 <button onclick="openUserModal('${uId}', '${u.name}')">View</button>
                 <button onclick="downloadExcel('${uId}', '${u.name}')">Excel</button>
@@ -363,41 +357,56 @@ async function loadAdminPanel() {
     tableContainer.innerHTML = table + '</tbody></table>';
 }
 
-// --- ROLE MANAGEMENT & EXCEL ---
 async function toggleRole(id, current) {
     const next = current === 'admin' ? 'user' : 'admin';
-    if(confirm(`Are you sure you want to make this user a ${next}?`)) {
+    if(confirm(`Are you sure you want to change permissions for this user to ${next}?`)) {
         await db.collection('users').doc(id).update({ role: next });
         loadAdminPanel();
     }
 }
 
+// --- EXCEL DOWNLOAD (Logic Corrected) ---
 async function downloadExcel(id, name) {
-    const snap = await db.collection('users').doc(id).collection('sadhana').orderBy('submittedAt','asc').get();
-    const rows = snap.docs.map(d => {
-        const e = d.data();
-        return { "Date": d.id, "Bed": e.sleepTime, "Wake": e.wakeupTime, "Chant": e.chantingTime, "Total": e.totalScore };
-    });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "History");
-    XLSX.writeFile(wb, `${name}_Sadhana.xlsx`);
+    try {
+        const snap = await db.collection('users').doc(id).collection('sadhana').orderBy('submittedAt','asc').get();
+        if(snap.empty) { alert("No data found to download."); return; }
+        
+        const rows = snap.docs.map(d => {
+            const e = d.data();
+            return { 
+                "Date": d.id, 
+                "To Bed": e.sleepTime, "Marks_Bed": e.scores.sleep,
+                "Wakeup": e.wakeupTime, "Marks_Wake": e.scores.wakeup,
+                "Chanting": e.chantingTime, "Marks_Chant": e.scores.chanting,
+                "Reading(m)": e.readingMinutes, "Marks_Read": e.scores.reading,
+                "Hearing(m)": e.hearingMinutes, "Marks_Hear": e.scores.hearing,
+                "Day Sleep(m)": e.daySleepMinutes, "Marks_DaySleep": e.scores.daySleep,
+                "Total Score": e.totalScore 
+            };
+        });
+        
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new(); 
+        XLSX.utils.book_append_sheet(wb, ws, "Sadhana_History");
+        XLSX.writeFile(wb, `${name}_Sadhana_Records.xlsx`);
+    } catch (err) {
+        alert("Excel Error: " + err.message);
+    }
 }
 
 // --- TAB & MODAL NAVIGATION ---
 window.switchTab = (t) => {
     document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    
     document.querySelector(`button[onclick*="switchTab('${t}')"]`).classList.add('active');
     document.getElementById(t + '-tab').classList.remove('hidden');
-    
     if(t === 'reports') loadReports(currentUser.uid, 'weekly-reports-container');
     if(t === 'admin') loadAdminPanel();
 };
 
 window.openUserModal = (id, name) => {
     document.getElementById('user-report-modal').classList.remove('hidden');
-    document.getElementById('modal-user-name').textContent = name + "'s History";
+    document.getElementById('modal-user-name').textContent = name + "'s Detailed History";
     loadReports(id, 'modal-report-container');
 };
 
@@ -406,6 +415,5 @@ window.closeUserModal = () => {
     if (activeListener) activeListener();
 };
 </script>
-
 </body>
 </html>
