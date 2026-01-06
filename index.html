@@ -156,12 +156,26 @@ function calculateMarks(data) {
     if (wk <= wakeCutoff) s.wakeup = 25;
     else s.wakeup = Math.max(-5, 25 - (Math.ceil((wk - wakeCutoff)/5)*5));
 
-    // Chanting Penalty Logic (30 min brackets)
+    // --- CHANTING LOGIC START ---
     const ch = getM(data.chantingTime);
-    const chantCutoff = getM("09:00");
-    if (ch <= chantCutoff) s.chanting = 25;
-    else s.chanting = Math.max(-5, 25 - (Math.ceil((ch - chantCutoff)/30)*5));
-
+    
+    if (ch < getM("09:00")) {
+        s.chanting = 25;
+    } else if (ch >= getM("09:00") && ch <= getM("09:30")) {
+        s.chanting = 20;
+    } else if (ch >= getM("09:31") && ch <= getM("10:59")) {
+        s.chanting = 15;
+    } else if (ch >= getM("11:00") && ch <= getM("14:30")) { // 2:30 PM
+        s.chanting = 10;
+    } else if (ch >= getM("14:31") && ch <= getM("17:00")) { // 5:00 PM
+        s.chanting = 5;
+    } else if (ch >= getM("17:01") && ch <= getM("19:00")) { // 7:00 PM
+        s.chanting = 0;
+    } else {
+        s.chanting = -5; // After 7:00 PM
+    }
+    // --- CHANTING LOGIC END ---
+    
     // Day Sleep Logic
     s.daySleep = data.daySleepMinutes <= 60 ? 25 : -5;
     
