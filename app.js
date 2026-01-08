@@ -11,7 +11,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 let currentUser = null, userProfile = null, activeListener = null;
 
-// --- 1. SCORING ENGINE (PRD DIVISORS) ---
+// --- 1. SCORING ENGINE (135/160 DIVISORS) ---
 const getBaseScore = (cat) => (cat && (cat.includes('Level-3') || cat.includes('Level-4'))) ? 160 : 135;
 
 function calculateMarks(data) {
@@ -43,21 +43,17 @@ function calculateMarks(data) {
     return s;
 }
 
-// --- 2. AUTH & INITIALIZATION ---
+// --- 2. AUTH OBSERVER ---
 auth.onAuthStateChanged(async (user) => {
-    console.log("Auth State:", user ? "Logged In" : "Logged Out");
     if (user) {
         currentUser = user;
         const doc = await db.collection('users').doc(user.uid).get();
         if (doc.exists) {
             userProfile = doc.data();
-            console.log("User Profile Loaded:", userProfile.name, "Role:", userProfile.role);
-            
             document.getElementById('user-display-name').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
             
-            // ADMIN CHECK: Only show if role is exactly 'admin'
+            // ADMIN BUTTON SHOW/HIDE
             if (userProfile.role === 'admin') {
-                console.log("Admin privileges detected.");
                 document.getElementById('admin-tab-btn').classList.remove('hidden');
             }
             
@@ -72,23 +68,13 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
-// --- 3. NAVIGATION (FIXED: NO LONGER HIDES BUTTONS) ---
+// --- 3. NAVIGATION (THE FIX) ---
 window.switchTab = (t) => {
-    console.log("Switching to tab:", t);
-    // Hide all tab content containers
+    // Buttons ko hide nahi karna hai, sirf Content ko!
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    // Deactivate all tab buttons
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     
-    // Show the targeted content
-    const target = document.getElementById(t + '-tab');
-    if (target) {
-        target.classList.remove('hidden');
-    } else {
-        console.error("Tab ID not found:", t + '-tab');
-    }
-
-    // Activate the clicked button
+    document.getElementById(t + '-tab').classList.remove('hidden');
     const btn = document.querySelector(`button[onclick*="switchTab('${t}')"]`);
     if(btn) btn.classList.add('active');
 
@@ -101,7 +87,7 @@ function showSection(id) {
     document.getElementById(id + '-section').classList.remove('hidden');
 }
 
-// --- 4. DATA ENTRY ---
+// --- 4. FORM LOGIC ---
 function setupDateSelect() {
     const s = document.getElementById('sadhana-date'); s.innerHTML = '';
     for(let i=0; i<2; i++) {
@@ -120,7 +106,7 @@ document.getElementById('sadhana-form').onsubmit = async (e) => {
     e.preventDefault();
     const date = document.getElementById('sadhana-date').value;
     const check = await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).get();
-    if (check.exists) return alert("Sadhana already submitted for this date!");
+    if (check.exists) return alert("Already submitted for this date!");
 
     const entry = {
         sleepTime: document.getElementById('sleep-time').value,
@@ -135,27 +121,23 @@ document.getElementById('sadhana-form').onsubmit = async (e) => {
     
     entry.scores = calculateMarks(entry);
     entry.totalScore = Object.values(entry.scores).reduce((a,b) => a+b, 0);
-    const divisor = getBaseScore(userProfile.chantingCategory);
-    entry.dayPercent = ((entry.totalScore / divisor) * 100).toFixed(1);
+    entry.dayPercent = ((entry.totalScore / getBaseScore(userProfile.chantingCategory)) * 100).toFixed(1);
 
     await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
-    alert("Sadhana Saved Successfully!");
-    location.reload();
+    alert("Saved!"); location.reload();
 };
 
-// --- 5. REPORTS ENGINE ---
+// --- 5. REPORTS ---
 function getWeekInfo(dateStr) {
     const d = new Date(dateStr);
     const sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
     const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
-    return { sunStr: sun.toISOString().split('T')[0], label: `${sun.toLocaleDateString('en-GB')} to ${sat.toLocaleDateString('en-GB')}` };
+    return { sunStr: sun.toISOString().split('T')[0], label: `${sun.toLocaleDateString('en-GB')} - ${sat.toLocaleDateString('en-GB')}` };
 }
 
 function loadReports(userId, containerId) {
     const container = document.getElementById(containerId);
-    if (!container) return;
     if (activeListener) activeListener();
-    
     activeListener = db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt','desc').onSnapshot(snap => {
         const weeks = {};
         snap.forEach(doc => {
@@ -164,102 +146,58 @@ function loadReports(userId, containerId) {
             weeks[w.sunStr].data.push({id: doc.id, ...e}); 
             weeks[w.sunStr].total += e.totalScore;
         });
-        
         container.innerHTML = '';
-        const sortedWeeks = Object.keys(weeks).sort((a,b) => b.localeCompare(a)).slice(0,4);
-        
-        if (sortedWeeks.length === 0) {
-            container.innerHTML = "<p style='text-align:center; padding:20px;'>No history found yet.</p>";
-            return;
-        }
-
-        sortedWeeks.forEach(key => {
+        Object.keys(weeks).sort((a,b) => b.localeCompare(a)).slice(0,4).forEach(key => {
             const week = weeks[key];
             const div = document.createElement('div'); div.className = 'week-card';
-            div.innerHTML = `
-                <div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                    <span>📅 ${week.range}</span><span>Total: ${week.total} pts</span>
-                </div>
-                <div class="week-content hidden">
-                    <table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:10px;">
-                        <tr style="background:#f4f4f4; text-align:left;"><th>Date</th><th>Score</th><th>%</th></tr>
-                        ${week.data.map(e => `<tr><td>${e.id}</td><td>${e.totalScore}</td><td>${e.dayPercent}%</td></tr>`).join('')}
-                    </table>
-                </div>`;
+            div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                <span>Week: ${week.range}</span><span>Total: ${week.total}</span></div>
+                <div class="week-content hidden">${week.data.map(e => `
+                <div style="border-bottom:1px solid #eee; padding:5px"><strong>${e.id}</strong> | Score: ${e.totalScore} (${e.dayPercent}%)</div>`).join('')}</div>`;
             container.appendChild(div);
         });
     });
 }
 
-// --- 6. ADMIN ENGINE ---
+// --- 6. ADMIN PANEL ---
 async function loadAdminPanel() {
-    console.log("Loading Admin Data...");
     const tableContainer = document.getElementById('admin-comparative-reports-container');
     const usersList = document.getElementById('admin-users-list');
-    
     const weeks = []; for(let i=0; i<4; i++) {
         const d = new Date(); d.setDate(d.getDate() - (i*7)); weeks.push(getWeekInfo(d.toISOString().split('T')[0]));
     }
     weeks.reverse();
-
-    try {
-        const usersSnap = await db.collection('users').get();
-        let table = `<table class="admin-table"><thead><tr><th>User Name</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
-        usersList.innerHTML = '';
-
-        for (const uDoc of usersSnap.docs) {
-            const u = uDoc.data();
-            table += `<tr><td style="text-align:left; font-weight:bold;">${u.name}</td>`;
-            const sSnap = await uDoc.ref.collection('sadhana').get();
-            const sEntries = sSnap.docs.map(d => ({date: d.id, score: d.data().totalScore || 0}));
-            
-            weeks.forEach(w => {
-                let weekTotal = 0; let curr = new Date(w.sunStr);
-                for(let i=0; i<7; i++) {
-                    const ds = curr.toISOString().split('T')[0];
-                    const f = sEntries.find(e => e.date === ds);
-                    weekTotal += f ? f.score : -30; // Penalty for missing days
-                    curr.setDate(curr.getDate() + 1);
-                }
-                table += `<td>${weekTotal}</td>`;
-            });
-            table += `</tr>`;
-            
-            const uItem = document.createElement('div'); uItem.style = "display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid #eee; align-items:center;";
-            uItem.innerHTML = `<span>${u.name} (${u.chantingCategory})</span>
-                <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:6px 12px; margin:0;">View Detail</button>`;
-            usersList.appendChild(uItem);
-        }
-        tableContainer.innerHTML = table + '</tbody></table>';
-    } catch (err) {
-        console.error("Admin Load Failed:", err);
-        tableContainer.innerHTML = "<p style='color:red'>Permission Denied: Ensure your role is set to 'admin' in Firestore.</p>";
+    const usersSnap = await db.collection('users').get();
+    let table = `<table class="admin-table"><thead><tr><th>Name</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
+    usersList.innerHTML = '';
+    for (const uDoc of usersSnap.docs) {
+        const u = uDoc.data();
+        table += `<tr><td>${u.name}</td>`;
+        const sSnap = await uDoc.ref.collection('sadhana').get();
+        const sEntries = sSnap.docs.map(d => ({date: d.id, score: d.data().totalScore || 0}));
+        weeks.forEach(w => {
+            let weekTotal = 0; let curr = new Date(w.sunStr);
+            for(let i=0; i<7; i++) {
+                const ds = curr.toISOString().split('T')[0];
+                const f = sEntries.find(e => e.date === ds);
+                weekTotal += f ? f.score : -30;
+                curr.setDate(curr.getDate() + 1);
+            }
+            table += `<td>${weekTotal}</td>`;
+        });
+        table += `</tr>`;
+        const uItem = document.createElement('div'); uItem.style = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #eee";
+        uItem.innerHTML = `<span>${u.name}</span><button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px 10px">History</button>`;
+        usersList.appendChild(uItem);
     }
+    tableContainer.innerHTML = table + '</tbody></table>';
 }
 
-// --- 7. AUTH & HELPERS ---
+// --- 7. MISC ---
 document.getElementById('login-form').onsubmit = (e) => {
     e.preventDefault();
     auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message));
 };
-
-document.getElementById('profile-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const data = {
-        name: document.getElementById('profile-name').value,
-        chantingCategory: document.getElementById('profile-chanting').value,
-        exactRounds: document.getElementById('profile-exact-rounds').value,
-        role: userProfile ? userProfile.role : 'user',
-        email: currentUser.email
-    };
-    await db.collection('users').doc(currentUser.uid).set(data, {merge:true});
-    location.reload();
-};
-
 document.getElementById('logout-btn').onclick = () => auth.signOut();
-window.openUserModal = (id, name) => { 
-    document.getElementById('user-report-modal').classList.remove('hidden'); 
-    document.getElementById('modal-user-name').textContent = name; 
-    loadReports(id, 'modal-report-container'); 
-};
+window.openUserModal = (id, name) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container'); };
 window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
