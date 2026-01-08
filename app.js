@@ -264,7 +264,7 @@ function setupDateSelect() {
         s.appendChild(opt);
     }
     // Logic to show Service field for L3 and L4
-    if (userProfile && (userProfile.chantingCategory === 'Level-3' || userProfile.chantingCategory === 'Level-4')) {
+    if (userProfile && (userProfile.chantingCategory.includes('Level-3') || userProfile.chantingCategory.includes('Level-4'))) {
         const serviceArea = document.getElementById('service-area');
         if(serviceArea) serviceArea.classList.remove('hidden');
     }
