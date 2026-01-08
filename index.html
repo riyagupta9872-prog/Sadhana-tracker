@@ -51,11 +51,12 @@
         <h2 id="profile-title">Complete Profile</h2>
         <form id="profile-form">
             <input type="text" id="profile-name" placeholder="Full Name" required>
-            <select id="profile-chanting" required>
+                        <select id="profile-chanting" required>
                 <option value="">Select Category</option>
-                <option value="0-4 Rounds">0-4 Rounds</option>
-                <option value="5-9 Rounds">5-9 Rounds</option>
-                <option value="10-16 Rounds">10-16 Rounds</option>
+                <option value="Level-1">Level-1 (0-4 Rounds)</option>
+                <option value="Level-2">Level-2 (5-8 Rounds)</option>
+                <option value="Level-3">Level-3 (9-16 Rounds)</option>
+                <option value="Level-4">Level-4 (16+ Coordinator)</option>
             </select>
             <input type="number" id="profile-exact-rounds" placeholder="Exact Rounds Chanting Currently" required min="0">
             <button type="submit" id="profile-save-btn">Save Profile</button>
@@ -213,15 +214,21 @@ function openProfileEdit() {
 
 document.getElementById('profile-form').onsubmit = async (e) => {
     e.preventDefault();
+    const selectedCategory = document.getElementById('profile-chanting').value;
     const updatedData = { 
         name: document.getElementById('profile-name').value, 
-        chantingCategory: document.getElementById('profile-chanting').value,
+        chantingCategory: selectedCategory,
         exactRounds: document.getElementById('profile-exact-rounds').value,
         role: userProfile ? userProfile.role : 'user', 
         email: currentUser.email
     };
-    await db.collection('users').doc(currentUser.uid).set(updatedData, {merge: true});
-    location.reload();
+    try {
+        await db.collection('users').doc(currentUser.uid).set(updatedData, {merge: true});
+        alert("Profile Updated Successfully!");
+        location.reload(); 
+    } catch (error) {
+        alert("Error: " + error.message);
+    }
 };
 
 function showSection(id) {
