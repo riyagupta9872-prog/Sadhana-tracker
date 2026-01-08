@@ -82,15 +82,34 @@
         <div id="sadhana-tab" class="tab-content">
             <div class="card">
                 <h3>Submit Daily Sadhana</h3>
-                <form id="sadhana-form" autocomplete="off">
+                                <form id="sadhana-form" autocomplete="off">
                     <label>Date:</label><select id="sadhana-date" required></select>
                     <label>Bed Time (Yesterday Sleep):</label><input type="time" id="sleep-time" required>
                     <label>Wake Up:</label><input type="time" id="wakeup-time" required>
                     <label>Chanting time (Last round by):</label><input type="time" id="chanting-time" required>
-                    <label>Reading (Mins):</label><input type="number" id="reading-minutes" placeholder="0" required>
-                    <label>Hearing (Mins):</label><input type="number" id="hearing-minutes" placeholder="0" required>
+                    
+                    <label><b>Reading:</b></label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="number" id="reading-hrs" placeholder="Hrs" min="0">
+                        <input type="number" id="reading-mins" placeholder="Mins" min="0" max="59">
+                    </div>
+
+                    <label><b>Hearing:</b></label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="number" id="hearing-hrs" placeholder="Hrs" min="0">
+                        <input type="number" id="hearing-mins" placeholder="Mins" min="0" max="59">
+                    </div>
+
+                    <div id="service-area" class="hidden">
+                        <label><b>Service:</b></label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="number" id="service-hrs" placeholder="Hrs" min="0">
+                            <input type="number" id="service-mins" placeholder="Mins" min="0" max="59">
+                        </div>
+                    </div>
+
                     <label>Day Sleep (Mins):</label><input type="number" id="day-sleep-minutes" placeholder="0" required>
-                    <button type="submit">Submit Entry</button>
+                    <button type="submit" id="submit-btn">Submit Entry</button>
                 </form>
             </div>
         </div>
