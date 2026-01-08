@@ -1,4 +1,4 @@
-// --- INITIALIZATION ---
+// --- CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -11,7 +11,60 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 let currentUser = null, userProfile = null;
 
-// --- 1. THE MATH ENGINE (PRD DIVISORS) ---
+// --- 1. AUTH & DASHBOARD INITIALIZATION ---
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        try {
+            const doc = await db.collection('users').doc(user.uid).get();
+            if (doc.exists) {
+                userProfile = doc.data();
+                // Matching your HTML IDs: user-display-name and user-display-level
+                document.getElementById('user-display-name').textContent = userProfile.name;
+                document.getElementById('user-display-level').textContent = userProfile.chantingCategory;
+                
+                if (userProfile.role === 'admin') {
+                    document.getElementById('admin-tab-btn').classList.remove('hidden');
+                }
+                
+                showSection('dashboard');
+                setupDateSelect();
+                switchTab('sadhana');
+            } else {
+                showSection('profile');
+            }
+        } catch (e) {
+            console.error(e);
+            showSection('auth');
+        }
+    } else {
+        showSection('auth');
+    }
+});
+
+// --- 2. NAVIGATION LOGIC ---
+window.switchTab = (tabId) => {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    const target = document.getElementById(tabId + '-tab');
+    if (target) target.classList.remove('hidden');
+    
+    const btn = document.querySelector(`button[onclick*="switchTab('${tabId}')"]`);
+    if (btn) btn.classList.add('active');
+
+    if (tabId === 'reports') loadReports(currentUser.uid, 'weekly-accordion-container', true);
+    if (tabId === 'admin') loadAdminPanel();
+};
+
+function showSection(id) {
+    document.getElementById('auth-section').classList.add('hidden');
+    document.getElementById('profile-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.add('hidden');
+    document.getElementById(id + '-section').classList.remove('hidden');
+}
+
+// --- 3. SCORING ENGINE ---
 const getBaseScore = (cat) => (cat.includes('Level-3') || cat.includes('Level-4')) ? 160 : 135;
 
 function calculateMarks(data) {
@@ -30,7 +83,6 @@ function calculateMarks(data) {
     if (ch < getM("09:00")) s.chanting = 25;
     else if (ch <= getM("09:30")) s.chanting = 20;
     else if (ch <= getM("10:59")) s.chanting = 15;
-    else if (ch <= getM("14:30")) s.chanting = 10;
     else if (ch <= 1140) s.chanting = 0;
     else s.chanting = -5;
 
@@ -42,49 +94,17 @@ function calculateMarks(data) {
     return s;
 }
 
-// --- 2. AUTH & TABS VISIBILITY ---
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        currentUser = user;
-        const doc = await db.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-            userProfile = doc.data();
-            document.getElementById('user-display-info').textContent = userProfile.name;
-            // Reveal Dashboard & Show Admin Button if role exists
-            document.getElementById('dashboard-section').classList.remove('hidden');
-            if (userProfile.role === 'admin') document.getElementById('admin-tab-btn').classList.remove('hidden');
-            showSection('dashboard'); switchTab('sadhana'); setupDateSelect();
-        } else { showSection('profile'); }
-    } else { showSection('auth'); }
-});
-
-window.switchTab = (tabId) => {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(tabId + '-tab').classList.remove('hidden');
-    const btn = document.querySelector(`button[onclick*="switchTab('${tabId}')"]`);
-    if(btn) btn.classList.add('active');
-
-    if (tabId === 'reports') loadReports(currentUser.uid, 'weekly-accordion-container', true);
-    if (tabId === 'admin') loadAdminPanel();
-};
-
-function showSection(id) {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id + '-section').classList.remove('hidden');
-}
-
-// --- 3. FORM & SERVICE LOGIC ---
+// --- 4. FORM LOGIC ---
 function setupDateSelect() {
-    const s = document.getElementById('sadhana-date'); s.innerHTML = '';
+    const s = document.getElementById('sadhana-date');
+    s.innerHTML = '';
     for(let i=0; i<2; i++) {
         const d = new Date(); d.setDate(d.getDate()-i);
         const iso = d.toISOString().split('T')[0];
         const opt = document.createElement('option'); opt.value = iso; opt.textContent = iso;
         s.appendChild(opt);
     }
-    const cat = userProfile.chantingCategory || "";
-    if (cat.includes('Level-3') || cat.includes('Level-4')) {
+    if (userProfile.chantingCategory.match(/Level-3|Level-4/)) {
         document.getElementById('service-area').classList.remove('hidden');
     }
 }
@@ -92,9 +112,6 @@ function setupDateSelect() {
 document.getElementById('sadhana-form').onsubmit = async (e) => {
     e.preventDefault();
     const date = document.getElementById('sadhana-date').value;
-    const check = await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).get();
-    if (check.exists) return alert("Already submitted!");
-
     const entry = {
         sleepTime: document.getElementById('sleep-time').value,
         wakeupTime: document.getElementById('wakeup-time').value,
@@ -102,7 +119,7 @@ document.getElementById('sadhana-form').onsubmit = async (e) => {
         readingMinutes: (parseInt(document.getElementById('reading-hrs').value)||0)*60 + (parseInt(document.getElementById('reading-mins').value)||0),
         hearingMinutes: (parseInt(document.getElementById('hearing-hrs').value)||0)*60 + (parseInt(document.getElementById('hearing-mins').value)||0),
         serviceMinutes: (parseInt(document.getElementById('service-hrs').value)||0)*60 + (parseInt(document.getElementById('service-mins').value)||0),
-        daySleepMinutes: parseInt(document.getElementById('day-sleep').value) || 0,
+        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value) || 0,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     entry.scores = calculateMarks(entry);
@@ -110,11 +127,12 @@ document.getElementById('sadhana-form').onsubmit = async (e) => {
     entry.dayPercent = ((entry.totalScore / getBaseScore(userProfile.chantingCategory)) * 100).toFixed(1);
 
     await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
+    alert("Sadhana Submitted!");
     location.reload();
 };
 
-// --- 4. THE 4 REPORTS SYSTEM ---
-async function loadReports(userId, containerId, limit4 = true, customCat = null) {
+// --- 5. REPORTS & ADMIN LOGIC ---
+async function loadReports(userId, containerId, limit4 = true) {
     const container = document.getElementById(containerId);
     const snap = await db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'desc').get();
     const weeks = {};
@@ -131,7 +149,7 @@ async function loadReports(userId, containerId, limit4 = true, customCat = null)
     (limit4 ? sorted.slice(0, 4) : sorted).forEach(k => {
         const w = weeks[k];
         const div = document.createElement('div'); div.className = 'week-box';
-        div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('active')"><span>Week: ${w.label}</span><span>▼ View Table</span></div>
+        div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('active')"><span>Week: ${w.label}</span><span>▼</span></div>
         <div class="week-content"><table class="report-table"><thead><tr><th>Date</th><th>Bed</th><th>Wake</th><th>Score</th><th>%</th></tr></thead>
         <tbody>${w.data.map(e => `<tr><td>${e.id}</td><td>${e.sleepTime}</td><td>${e.wakeupTime}</td><td>${e.totalScore}</td><td>${e.dayPercent}%</td></tr>`).join('')}</tbody></table></div>`;
         container.appendChild(div);
@@ -139,11 +157,10 @@ async function loadReports(userId, containerId, limit4 = true, customCat = null)
 }
 
 async function loadAdminPanel() {
-    const sumCont = document.getElementById('admin-summary-table-container');
+    const compContainer = document.getElementById('admin-comparative-container');
     const uList = document.getElementById('admin-users-list');
     const users = await db.collection('users').get();
     
-    // Matrix Table Header (Last 4 Sundays)
     const weeks = []; for(let i=0; i<4; i++) { 
         const d = new Date(); d.setDate(d.getDate()-(i*7)); 
         const sun = new Date(d); sun.setDate(d.getDate()-d.getDay()); 
@@ -151,7 +168,7 @@ async function loadAdminPanel() {
     }
     weeks.reverse();
 
-    let html = `<table class="report-table"><thead><tr><th>User</th>${weeks.map(w => `<th>Week ${w.sun}</th>`).join('')}</tr></thead><tbody>`;
+    let html = `<table class="report-table"><thead><tr><th>User</th>${weeks.map(w => `<th>${w.sun}</th>`).join('')}</tr></thead><tbody>`;
     uList.innerHTML = '';
 
     for (const uDoc of users.docs) {
@@ -173,33 +190,31 @@ async function loadAdminPanel() {
         html += `</tr>`;
 
         const div = document.createElement('div'); div.style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #eee";
-        div.innerHTML = `<span>${u.name}</span><button onclick="openUserModal('${uDoc.id}', '${u.name}', '${u.chantingCategory}')" style="width:auto">Detail Table</button>`;
+        div.innerHTML = `<span>${u.name}</span><button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto">Detail Table</button>`;
         uList.appendChild(div);
     }
-    sumCont.innerHTML = html + `</tbody></table>`;
+    compContainer.innerHTML = html + `</tbody></table>`;
 }
 
-// --- 5. EXPORTS & UTILS ---
-document.getElementById('user-download-btn').onclick = async () => {
-    const snap = await db.collection('users').doc(currentUser.uid).collection('sadhana').orderBy('submittedAt','asc').get();
-    const rows = [["Date", "Bed", "Wake", "Chant", "Read", "Hear", "Seva", "Score", "%"]];
-    snap.forEach(d => { const e = d.data(); rows.push([d.id, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes, e.totalScore, e.dayPercent+"%"]); });
-    XLSX.writeFile({SheetNames:["Data"], Sheets:{"Data":XLSX.utils.aoa_to_sheet(rows)}}, `${userProfile.name}_History.xlsx`);
+// --- 6. EXPORTS & HELPERS ---
+document.getElementById('login-form').onsubmit = (e) => {
+    e.preventDefault();
+    auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value)
+    .catch(err => alert(err.message));
 };
 
-async function downloadMasterReport() {
-    const users = await db.collection('users').get(); const wb = XLSX.utils.book_new();
-    for (const uDoc of users.docs) {
-        const u = uDoc.data(); const snap = await uDoc.ref.collection('sadhana').orderBy('submittedAt','asc').get();
-        const rows = [["Date", "Bed", "Wake", "Score", "%"]];
-        snap.forEach(d => rows.push([d.id, d.data().sleepTime, d.data().wakeupTime, d.data().totalScore, d.data().dayPercent+"%"]));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), u.name.substring(0,30));
-    }
-    XLSX.writeFile(wb, "Master_Report.xlsx");
-}
+document.getElementById('profile-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const data = {
+        name: document.getElementById('profile-name').value,
+        chantingCategory: document.getElementById('profile-chanting').value,
+        exactRounds: document.getElementById('profile-exact-rounds').value,
+        role: 'user', email: currentUser.email
+    };
+    await db.collection('users').doc(currentUser.uid).set(data);
+    location.reload();
+};
 
-window.openUserModal = (id, name, cat) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container', true, cat); };
-window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
-document.getElementById('profile-form').onsubmit = async (e) => { e.preventDefault(); await db.collection('users').doc(currentUser.uid).set({ name: document.getElementById('profile-name').value, chantingCategory: document.getElementById('profile-chanting').value, exactRounds: document.getElementById('profile-exact-rounds').value, role: 'user', email: currentUser.email }); location.reload(); };
-document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message)); };
 document.getElementById('logout-btn').onclick = () => auth.signOut();
+window.openUserModal = (id, name) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container', true); };
+window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
