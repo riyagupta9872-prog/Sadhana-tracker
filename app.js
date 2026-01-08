@@ -92,23 +92,50 @@ function showView(v) {
 }
 
 // --- 5. DATA SUBMISSION (Live Update) ---
-document.getElementById('sadhana-form').addEventListener('submit', async (e) => {
+document.getElementById('sadhana-form').onsubmit = async (e) => {
     e.preventDefault();
     const date = document.getElementById('sadhana-date').value;
+    const btn = document.querySelector('#sadhana-form button[type="submit"]');
+
+    // 1. Block Edits (Duplicate Entry Check)
+    const check = await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).get();
+    if (check.exists) {
+        alert("Sadhana already submitted for this date. Changes are not allowed.");
+        return;
+    }
+
+    btn.disabled = true;
+
+    // 2. Convert Hrs + Mins to total Minutes for all fields
+    const readTotal = (parseInt(document.getElementById('reading-hrs').value) || 0) * 60 + (parseInt(document.getElementById('reading-mins').value) || 0);
+    const hearTotal = (parseInt(document.getElementById('hearing-hrs').value) || 0) * 60 + (parseInt(document.getElementById('hearing-mins').value) || 0);
+    const servTotal = (parseInt(document.getElementById('service-hrs').value) || 0) * 60 + (parseInt(document.getElementById('service-mins').value) || 0);
+
     const entry = {
         sleepTime: document.getElementById('sleep-time').value,
         wakeupTime: document.getElementById('wakeup-time').value,
         chantingTime: document.getElementById('chanting-time').value,
-        readingMinutes: parseInt(document.getElementById('reading-minutes').value),
-        hearingMinutes: parseInt(document.getElementById('hearing-minutes').value),
-        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value),
+        readingMinutes: readTotal,
+        hearingMinutes: hearTotal,
+        serviceMinutes: servTotal,
+        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value) || 0,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+
+    // Calculate marks using the updated logic
     entry.scores = calculateScores(entry);
     entry.totalScore = Object.values(entry.scores).reduce((a,b) => a+b, 0);
-    await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
-    alert("Sadhana Saved Successfully!");
-});
+
+    try {
+        await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
+        alert("Sadhana Submitted successfully!");
+        location.reload(); 
+    } catch (err) {
+        alert("Error: " + err.message);
+        btn.disabled = false;
+    }
+};
+    
 
 // --- 6. USER REPORTS (Beautiful View) ---
 function loadReports(userId, containerId) {
@@ -229,11 +256,16 @@ window.switchTab = (t) => {
 
 function setupDateSelect() {
     const s = document.getElementById('sadhana-date'); s.innerHTML = '';
-    for(let i=0; i<3; i++) {
+    for(let i=0; i<2; i++) { // Changed to 2 days only
         const d = new Date(); d.setDate(d.getDate()-i);
         const iso = d.toISOString().split('T')[0];
-        const opt = document.createElement('option');
-        opt.value = iso; opt.textContent = i===0 ? "Today" : i===1 ? "Yesterday" : iso;
+        const opt = document.createElement('option'); opt.value = iso; 
+        opt.textContent = i===0 ? "Today" : "Yesterday";
         s.appendChild(opt);
+    }
+    // Logic to show Service field for L3 and L4
+    if (userProfile && (userProfile.chantingCategory === 'Level-3' || userProfile.chantingCategory === 'Level-4')) {
+        const serviceArea = document.getElementById('service-area');
+        if(serviceArea) serviceArea.classList.remove('hidden');
     }
 }
