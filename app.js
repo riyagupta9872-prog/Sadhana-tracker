@@ -1,4 +1,4 @@
-// --- INITIALIZATION ---
+// --- FIREBASE INITIALIZATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -11,25 +11,25 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 let currentUser = null, userProfile = null;
 
-// --- DYNAMIC SCORING ENGINE (Point: Level-based Math) ---
+// --- SCORING & % LOGIC (PRD POINT: LEVEL-BASED DIVISORS) ---
 const getBaseScore = (cat) => (cat.includes('Level-3') || cat.includes('Level-4')) ? 160 : 135;
 
 function calculateMarks(data) {
     const getM = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     const s = {};
     
-    // Sleep Scoring
+    // Bed Time
     const sl = getM(data.sleepTime);
     const sleepCutoff = getM("22:30");
     if (sl >= 0 && sl <= 300) s.sleep = -5;
     else s.sleep = sl <= sleepCutoff ? 25 : Math.max(-5, 25 - (Math.ceil((sl - sleepCutoff)/5)*5));
 
-    // Wakeup Scoring
+    // Wakeup Time
     const wk = getM(data.wakeupTime);
     const wakeCutoff = getM("05:05");
     s.wakeup = wk <= wakeCutoff ? 25 : Math.max(-5, 25 - (Math.ceil((wk - wakeCutoff)/5)*5));
 
-    // Chanting Scoring
+    // Chanting Time
     const ch = getM(data.chantingTime);
     if (ch < getM("09:00")) s.chanting = 25;
     else if (ch <= getM("09:30")) s.chanting = 20;
@@ -44,23 +44,21 @@ function calculateMarks(data) {
     s.reading = calcRH(data.readingMinutes);
     s.hearing = calcRH(data.hearingMinutes);
     s.service = (data.serviceMinutes >= 30) ? 25 : 0;
-    
     return s;
 }
 
-// --- AUTH HANDLER ---
+// --- AUTH & PROFILE HANDLER ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
         const doc = await db.collection('users').doc(user.uid).get();
         if (doc.exists) {
             userProfile = doc.data();
-            document.getElementById('user-display-name').textContent = userProfile.name;
-            document.getElementById('user-display-level').textContent = userProfile.chantingCategory;
+            document.getElementById('user-display-info').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
             if (userProfile.role === 'admin') document.getElementById('admin-tab-btn').classList.remove('hidden');
             showSection('dashboard'); switchTab('sadhana'); setupDateSelect();
-        } else { showSection('profile'); }
-    } else { showSection('auth'); }
+        } else showSection('profile');
+    } else showSection('auth');
 });
 
 function setupDateSelect() {
@@ -71,34 +69,27 @@ function setupDateSelect() {
         const opt = document.createElement('option'); opt.value = iso; opt.textContent = iso;
         s.appendChild(opt);
     }
-    const cat = userProfile.chantingCategory || "";
-    if (cat.includes('Level-3') || cat.includes('Level-4')) {
+    // Conditional Service Field for L3/L4
+    if (userProfile.chantingCategory.match(/Level-3|Level-4/)) {
         document.getElementById('service-area').classList.remove('hidden');
-        document.getElementById('service-hrs').required = true;
-        document.getElementById('service-mins').required = true;
     }
 }
 
-// --- SUBMISSION LOGIC ---
+// --- DATA SUBMISSION ---
 document.getElementById('sadhana-form').onsubmit = async (e) => {
     e.preventDefault();
     const date = document.getElementById('sadhana-date').value;
-    const btn = document.getElementById('submit-btn');
-    
     const check = await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).get();
-    if (check.exists) return alert("Submission for " + date + " already exists!");
-
-    btn.disabled = true;
-    const rM = (parseInt(document.getElementById('reading-hrs').value)||0)*60 + (parseInt(document.getElementById('reading-mins').value)||0);
-    const hM = (parseInt(document.getElementById('hearing-hrs').value)||0)*60 + (parseInt(document.getElementById('hearing-mins').value)||0);
-    const sM = (parseInt(document.getElementById('service-hrs').value)||0)*60 + (parseInt(document.getElementById('service-mins').value)||0);
+    if (check.exists) return alert("Submission already exists for this date!");
 
     const entry = {
         sleepTime: document.getElementById('sleep-time').value,
         wakeupTime: document.getElementById('wakeup-time').value,
         chantingTime: document.getElementById('chanting-time').value,
-        readingMinutes: rM, hearingMinutes: hM, serviceMinutes: sM,
-        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value) || 0,
+        readingMinutes: (parseInt(document.getElementById('reading-hrs').value)||0)*60 + (parseInt(document.getElementById('reading-mins').value)||0),
+        hearingMinutes: (parseInt(document.getElementById('hearing-hrs').value)||0)*60 + (parseInt(document.getElementById('hearing-mins').value)||0),
+        serviceMinutes: (parseInt(document.getElementById('service-hrs').value)||0)*60 + (parseInt(document.getElementById('service-mins').value)||0),
+        daySleepMinutes: parseInt(document.getElementById('day-sleep').value) || 0,
         submittedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
@@ -107,29 +98,14 @@ document.getElementById('sadhana-form').onsubmit = async (e) => {
     const divisor = getBaseScore(userProfile.chantingCategory);
     entry.dayPercent = ((entry.totalScore / divisor) * 100).toFixed(1);
 
-    try {
-        await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
-        alert("Sadhana Saved Successfully!"); location.reload();
-    } catch (err) { alert(err.message); btn.disabled = false; }
+    await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
+    location.reload();
 };
 
-// --- REPORT RENDERING (Hybrid Accordion-Table) ---
-function generateTable(dataArr) {
-    let html = `<table class="report-table"><thead><tr>
-        <th>Date</th><th>Bed</th><th>Wake</th><th>Chant</th><th>Read</th><th>Hear</th><th>Seva</th><th>Score</th><th>%</th>
-    </tr></thead><tbody>`;
-    dataArr.forEach(e => {
-        html += `<tr>
-            <td>${e.id}</td><td>${e.sleepTime}</td><td>${e.wakeupTime}</td><td>${e.chantingTime}</td>
-            <td>${e.readingMinutes}m</td><td>${e.hearingMinutes}m</td><td>${e.serviceMinutes||0}m</td>
-            <td style="font-weight:bold">${e.totalScore}</td><td style="color:var(--success)">${e.dayPercent}%</td>
-        </tr>`;
-    });
-    return html + `</tbody></table>`;
-}
-
-async function loadReports(userId, containerId, limitTo4 = false) {
+// --- REPORT 1 & 4: HYBRID COLLAPSIBLE + TABLE ---
+async function loadReports(userId, containerId, limitTo4 = true, customCat = null) {
     const container = document.getElementById(containerId);
+    const cat = customCat || userProfile.chantingCategory;
     const snap = await db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'desc').get();
     
     const weeks = {};
@@ -148,14 +124,65 @@ async function loadReports(userId, containerId, limitTo4 = false) {
     displayWeeks.forEach(wKey => {
         const w = weeks[wKey];
         const div = document.createElement('div'); div.className = 'week-box';
-        div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('active')">
-            <span>Week: ${w.label}</span><span>▼ View Table</span></div>
-            <div class="week-content">${generateTable(w.data)}</div>`;
+        div.innerHTML = `
+            <div class="week-header" onclick="this.nextElementSibling.classList.toggle('active')">
+                <span>Week Starting: ${w.label}</span><span>▼ Detailed Table</span>
+            </div>
+            <div class="week-content">
+                <table class="report-table">
+                    <thead><tr><th>Date</th><th>Bed</th><th>Wake</th><th>Read</th><th>Hear</th><th>Seva</th><th>Score</th><th>%</th></tr></thead>
+                    <tbody>${w.data.map(e => `<tr><td>${e.id}</td><td>${e.sleepTime}</td><td>${e.wakeupTime}</td><td>${e.readingMinutes}m</td><td>${e.hearingMinutes}m</td><td>${e.serviceMinutes||0}m</td><td>${e.totalScore}</td><td>${e.dayPercent}%</td></tr>`).join('')}</tbody>
+                </table>
+            </div>`;
         container.appendChild(div);
     });
 }
 
-// --- NAVIGATION & ADMIN ---
+// --- REPORT 3: ADMIN WEEKLY COMPARATIVE ---
+async function loadAdminPanel() {
+    const sumContainer = document.getElementById('admin-summary-table-container');
+    const userList = document.getElementById('admin-users-list');
+    const users = await db.collection('users').get();
+    
+    const weeks = []; 
+    for(let i=0; i<4; i++) { 
+        const d = new Date(); d.setDate(d.getDate() - (i*7)); 
+        const sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
+        const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+        weeks.push({ sunStr: sun.toISOString().split('T')[0], label: `${sun.toLocaleDateString()} - ${sat.toLocaleDateString()}` }); 
+    }
+    weeks.reverse();
+
+    let sumTable = `<table class="report-table"><thead><tr><th>User</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
+    userList.innerHTML = '';
+
+    for (const uDoc of users.docs) {
+        const u = uDoc.data();
+        sumTable += `<tr><td>${u.name}</td>`;
+        const sSnap = await uDoc.ref.collection('sadhana').get();
+        const entries = sSnap.docs.map(d => ({date: d.id, score: d.data().totalScore}));
+        
+        weeks.forEach(w => {
+            let weekTotal = 0; let curr = new Date(w.sunStr);
+            for(let i=0; i<7; i++) {
+                const ds = curr.toISOString().split('T')[0];
+                const f = entries.find(e => e.date === ds);
+                weekTotal += f ? f.score : -30; // Missing day penalty
+                curr.setDate(curr.getDate() + 1);
+            }
+            sumTable += `<td>${weekTotal}</td>`;
+        });
+        sumTable += `</tr>`;
+
+        const div = document.createElement('div');
+        div.style = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between";
+        div.innerHTML = `<span>${u.name}</span><button onclick="openUserModal('${uDoc.id}', '${u.name}', '${u.chantingCategory}')" style="width:auto; padding:5px 10px">View Table</button>`;
+        userList.appendChild(div);
+    }
+    sumContainer.innerHTML = sumTable + `</tbody></table>`;
+}
+
+// --- NAVIGATION ---
 window.switchTab = (t) => {
     document.querySelectorAll('.tab-btn, .tab-content').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
     document.querySelector(`button[onclick*="switchTab('${t}')"]`).classList.add('active');
@@ -164,78 +191,39 @@ window.switchTab = (t) => {
     if(t === 'admin') loadAdminPanel();
 };
 
-function showSection(id) {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id + '-section').classList.remove('hidden');
-}
-
-async function loadAdminPanel() {
-    const usersSnap = await db.collection('users').get();
-    const list = document.getElementById('admin-users-list');
-    const compContainer = document.getElementById('admin-comparative-container');
-    list.innerHTML = '';
-    
-    // Simple Comparative List (Weekly Overview can be expanded here)
-    usersSnap.forEach(uDoc => {
-        const u = uDoc.data();
-        const div = document.createElement('div');
-        div.className = 'week-header'; div.style.marginBottom = "5px";
-        div.innerHTML = `<span>${u.name} (${u.chantingCategory})</span>
-            <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px 10px;">Review History</button>`;
-        list.appendChild(div);
-    });
-}
-
-window.openUserModal = (id, name) => {
-    document.getElementById('user-report-modal').classList.remove('hidden');
-    document.getElementById('modal-user-name').textContent = "Sadhana Record: " + name;
-    loadReports(id, 'modal-report-container', true);
-};
-
+function showSection(id) { document.querySelectorAll('section').forEach(s => s.classList.add('hidden')); document.getElementById(id + '-section').classList.remove('hidden'); }
+window.openUserModal = (id, name, cat) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container', true, cat); };
 window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
 
-// --- EXCEL EXPORT (Full History) ---
+// --- EXCEL REPORT 2: FULL HISTORY ---
 document.getElementById('user-download-btn').onclick = async () => {
     const snap = await db.collection('users').doc(currentUser.uid).collection('sadhana').orderBy('submittedAt','asc').get();
-    const rows = [["Date", "BedTime", "WakeTime", "ChantTime", "Read(m)", "Hear(m)", "Service(m)", "Total Score", "Day %"]];
-    snap.forEach(doc => {
-        const e = doc.data();
-        rows.push([doc.id, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes||0, e.totalScore, e.dayPercent+"%"]);
-    });
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sadhana_History");
-    XLSX.writeFile(wb, `${userProfile.name}_Full_Record.xlsx`);
+    const rows = [["Date", "Bed", "Wake", "Chant", "Read", "Hear", "Seva", "Score", "%"]];
+    snap.forEach(d => { const e = d.data(); rows.push([d.id, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes, e.totalScore, e.dayPercent+"%"]); });
+    XLSX.writeFile({SheetNames:["History"], Sheets:{"History":XLSX.utils.aoa_to_sheet(rows)}}, `${userProfile.name}_Full_History.xlsx`);
 };
 
 async function downloadMasterReport() {
-    const users = await db.collection('users').get();
-    const wb = XLSX.utils.book_new();
+    const users = await db.collection('users').get(); const wb = XLSX.utils.book_new();
     for (const uDoc of users.docs) {
-        const u = uDoc.data();
-        const snap = await uDoc.ref.collection('sadhana').orderBy('submittedAt','asc').get();
-        const rows = [["Date", "Bed", "Wake", "Chant", "Read(m)", "Hear(m)", "Service(m)", "Score", "%"]];
-        snap.forEach(d => { const e = d.data(); rows.push([d.id, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes||0, e.totalScore, e.dayPercent+"%"]); });
+        const u = uDoc.data(); const snap = await uDoc.ref.collection('sadhana').orderBy('submittedAt','asc').get();
+        const rows = [["Date", "Bed", "Wake", "Chant", "Read", "Hear", "Seva", "Score", "%"]];
+        snap.forEach(d => { const e = d.data(); rows.push([d.id, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes, e.totalScore, e.dayPercent+"%"]); });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), u.name.substring(0,30));
     }
-    XLSX.writeFile(wb, "Master_Tracker_Report.xlsx");
+    XLSX.writeFile(wb, "Admin_Master_Report.xlsx");
 }
 
-// --- PROFILE & LOGIN ---
+// --- AUTH/PROFILE FORMS ---
 document.getElementById('profile-form').onsubmit = async (e) => {
     e.preventDefault();
-    const data = { 
+    await db.collection('users').doc(currentUser.uid).set({ 
         name: document.getElementById('profile-name').value, 
         chantingCategory: document.getElementById('profile-chanting').value, 
         exactRounds: document.getElementById('profile-exact-rounds').value, 
         role: 'user', email: currentUser.email 
-    };
-    await db.collection('users').doc(currentUser.uid).set(data);
+    });
     location.reload();
 };
-
-document.getElementById('login-form').onsubmit = (e) => {
-    e.preventDefault();
-    auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message));
-};
+document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message)); };
 document.getElementById('logout-btn').onclick = () => auth.signOut();
