@@ -11,12 +11,11 @@ if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const auth = firebase.auth(), db = firebase.firestore();
 let currentUser = null, userProfile = null, activeListener = null;
 
-// --- 1. DATE LOGIC (Specified Pattern: 04 Jan to 10 Jan_2026) ---
+// --- 1. PRD FORMATTING (Date: 04 Jan to 10 Jan_2026) ---
 function getWeekInfo(dateStr) {
     const d = new Date(dateStr);
     const sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
     const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
-    
     const fmt = (date) => {
         const day = String(date.getDate()).padStart(2, '0');
         const month = date.toLocaleString('en-GB', { month: 'short' });
@@ -28,58 +27,7 @@ function getWeekInfo(dateStr) {
     };
 }
 
-// --- 2. AUTH & PROFILE (Efficiency: Single Observer) ---
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        currentUser = user;
-        const doc = await db.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-            userProfile = doc.data();
-            document.getElementById('user-display-name').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
-            // Effectiveness Check: Admin visibility
-            const adminBtn = document.getElementById('admin-tab-btn');
-            if (userProfile.role === 'admin' && adminBtn) adminBtn.classList.remove('hidden');
-            
-            showSection('dashboard');
-            switchTab('sadhana');
-            setupDateSelect();
-        } else {
-            showSection('profile');
-        }
-    } else {
-        showSection('auth');
-    }
-});
-
-// --- 3. DYNAMIC NAVIGATION FIX ---
-window.switchTab = (t) => {
-    // Hide content areas ONLY
-    const containers = ['sadhana-tab', 'reports-tab', 'admin-tab'];
-    containers.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-    });
-    
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
-    const target = document.getElementById(t + '-tab');
-    if (target) target.classList.remove('hidden');
-    
-    const activeBtn = document.querySelector(`button[onclick*="switchTab('${t}')"]`);
-    if (activeBtn) activeBtn.classList.add('active');
-
-    // Data Loading
-    if (t === 'reports') loadReports(currentUser.uid, 'weekly-reports-container');
-    if (t === 'admin') loadAdminPanel();
-};
-
-function showSection(id) {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    const target = document.getElementById(id + '-section');
-    if (target) target.classList.remove('hidden');
-}
-
-// --- 4. REPORTS (Effectiveness: Real-time Table Generation) ---
+// --- 2. REPORTS TAB (Full PRD Columns) ---
 function loadReports(userId, containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -94,19 +42,37 @@ function loadReports(userId, containerId) {
             weeks[w.sunStr].total += (e.totalScore || 0);
         });
 
-        container.innerHTML = Object.keys(weeks).length ? '' : '<p>No records found.</p>';
+        container.innerHTML = '';
         Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(key => {
             const week = weeks[key];
             const div = document.createElement('div');
             div.className = 'week-card';
             div.innerHTML = `
-                <div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')" style="cursor:pointer; display:flex; justify-content:space-between; padding:10px; background:#eee; margin-top:5px; border-radius:5px;">
-                    <span>${week.range}</span><strong>Total: ${week.total}</strong>
+                <div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                    <span>${week.range}</span><strong>Score: ${week.total} ▼</strong>
                 </div>
-                <div class="week-content hidden">
-                    <table class="admin-table" style="width:100%; border-collapse:collapse; font-size:12px;">
-                        <thead><tr style="background:#f9f9f9"><th>Date</th><th>Score</th><th>Bed</th><th>Wake</th></tr></thead>
-                        <tbody>${week.data.map(e => `<tr><td>${e.id}</td><td>${e.totalScore}</td><td>${e.sleepTime}</td><td>${e.wakeupTime}</td></tr>`).join('')}</tbody>
+                <div class="week-content hidden" style="overflow-x:auto">
+                    <table class="admin-table" style="min-width:800px">
+                        <thead>
+                            <tr>
+                                <th>Date</th><th>Bed</th><th>M</th><th>Wake</th><th>M</th>
+                                <th>Chant</th><th>M</th><th>Read</th><th>Hear</th>
+                                <th>Seva</th><th>Total</th><th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${week.data.map(e => `
+                                <tr>
+                                    <td>${e.id}</td>
+                                    <td>${e.sleepTime}</td><td>${e.scores.sleep}</td>
+                                    <td>${e.wakeupTime}</td><td>${e.scores.wakeup}</td>
+                                    <td>${e.chantingTime}</td><td>${e.scores.chanting}</td>
+                                    <td>${e.readingMinutes}m</td><td>${e.hearingMinutes}m</td>
+                                    <td>${e.serviceMinutes || 0}m</td>
+                                    <td><strong>${e.totalScore}</strong></td>
+                                    <td>${e.dayPercent}%</td>
+                                </tr>`).join('')}
+                        </tbody>
                     </table>
                 </div>`;
             container.appendChild(div);
@@ -114,12 +80,53 @@ function loadReports(userId, containerId) {
     });
 }
 
-// --- 5. ADMIN & USER MANAGEMENT (Efficiency: Parallel Data Processing) ---
+// --- 3. EXCEL EXPORT (FIXED & FUNCTIONAL) ---
+window.downloadUserExcel = async (userId, userName) => {
+    try {
+        const snap = await db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'asc').get();
+        if (snap.empty) return alert("No data to download");
+
+        // Building columns as per PRD
+        const rows = [["Date", "Bed Time", "Bed Marks", "Wakeup", "Wake Marks", "Chant Time", "Chant Marks", "Read(m)", "Hear(m)", "Seva(m)", "Day Score", "Day %"]];
+        
+        snap.forEach(doc => {
+            const e = doc.data();
+            rows.push([
+                doc.id, e.sleepTime, e.scores.sleep, e.wakeupTime, e.scores.wakeup, 
+                e.chantingTime, e.scores.chanting, e.readingMinutes, e.hearingMinutes, 
+                e.serviceMinutes || 0, e.totalScore, e.dayPercent + "%"
+            ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sadhana");
+        XLSX.writeFile(wb, `${userName}_Sadhana.xlsx`);
+    } catch (err) {
+        console.error("Excel Error:", err);
+        alert("Download failed. Make sure xlsx library is loaded.");
+    }
+};
+
+// --- 4. ADMIN & USER MANAGEMENT (MAKE/REMOVE ADMIN) ---
+window.makeAdmin = async (uid) => {
+    if (confirm("Promote this user to Admin?")) {
+        await db.collection('users').doc(uid).update({ role: 'admin' });
+        alert("Promoted!"); loadAdminPanel();
+    }
+};
+
+window.removeAdmin = async (uid) => {
+    if (confirm("Remove Admin privileges from this user?")) {
+        await db.collection('users').doc(uid).update({ role: 'user' });
+        alert("Demoted!"); loadAdminPanel();
+    }
+};
+
 async function loadAdminPanel() {
     const tableContainer = document.getElementById('admin-comparative-reports-container');
     const usersList = document.getElementById('admin-users-list');
-    if (!tableContainer || !usersList) return;
-
+    
     const weeks = [];
     for (let i = 0; i < 4; i++) {
         const d = new Date(); d.setDate(d.getDate() - (i * 7));
@@ -128,13 +135,13 @@ async function loadAdminPanel() {
     weeks.reverse();
 
     const usersSnap = await db.collection('users').get();
-    let tableHtml = `<table class="admin-table"><thead><tr><th>User Name</th><th>Category</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
+    let tableHtml = `<table class="admin-table"><thead><tr><th>User</th><th>Cat</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
     
-    usersList.innerHTML = ''; // Reset User List
+    usersList.innerHTML = ''; 
 
     for (const uDoc of usersSnap.docs) {
         const u = uDoc.data();
-        tableHtml += `<tr><td>${u.name}</td><td>${u.chantingCategory || 'N/A'}</td>`;
+        tableHtml += `<tr><td>${u.name}</td><td>${u.chantingCategory || 'L-?'}</td>`;
         
         const sSnap = await uDoc.ref.collection('sadhana').get();
         const sEntries = sSnap.docs.map(d => ({ date: d.id, score: d.data().totalScore || 0 }));
@@ -151,48 +158,57 @@ async function loadAdminPanel() {
         });
         tableHtml += `</tr>`;
 
-        // Effectiveness: Adding Management Buttons
+        // User Management Interface
         const uDiv = document.createElement('div');
         uDiv.className = 'card';
-        uDiv.style = "margin-bottom:10px; padding:10px; display:flex; justify-content:space-between; align-items:center;";
+        uDiv.style = "margin-bottom:10px; padding:12px; display:flex; justify-content:space-between; align-items:center; background:#fff; border-left:4px solid #3498db";
         uDiv.innerHTML = `
-            <div><strong>${u.name}</strong><br><small>${u.email}</small></div>
-            <div style="display:flex; gap:5px;">
-                <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px; font-size:11px;">History</button>
-                <button onclick="downloadUserExcel('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px; font-size:11px; background:green;">Excel</button>
-                ${u.role !== 'admin' ? `<button onclick="makeAdmin('${uDoc.id}')" style="width:auto; padding:5px; font-size:11px; background:orange;">Make Admin</button>` : ''}
+            <div><strong>${u.name}</strong><br><small>${u.role || 'user'}</small></div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:6px 12px; font-size:12px;">History</button>
+                <button onclick="downloadUserExcel('${uDoc.id}', '${u.name}')" style="width:auto; padding:6px 12px; font-size:12px; background:green;">Excel</button>
+                ${u.role === 'admin' ? 
+                    `<button onclick="removeAdmin('${uDoc.id}')" style="width:auto; padding:6px 12px; font-size:12px; background:red;">Remove Admin</button>` : 
+                    `<button onclick="makeAdmin('${uDoc.id}')" style="width:auto; padding:6px 12px; font-size:12px; background:orange;">Make Admin</button>`
+                }
             </div>`;
         usersList.appendChild(uDiv);
     }
     tableContainer.innerHTML = tableHtml + `</tbody></table>`;
 }
 
-// --- 6. EXCEL DOWNLOADS (Effectiveness: Direct Blob Handling) ---
-window.downloadUserExcel = async (userId, userName) => {
-    try {
-        const snap = await db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'asc').get();
-        const data = [["Date", "Total Score", "Bed Time", "Wakeup", "Chanting", "Reading (m)", "Hearing (m)", "Service (m)"]];
-        snap.forEach(doc => {
-            const e = doc.data();
-            data.push([doc.id, e.totalScore, e.sleepTime, e.wakeupTime, e.chantingTime, e.readingMinutes, e.hearingMinutes, e.serviceMinutes || 0]);
-        });
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Sadhana History");
-        XLSX.writeFile(wb, `${userName}_Sadhana_Tracker.xlsx`);
-    } catch (e) { alert("Excel Export Failed: " + e.message); }
+// --- CORE NAVIGATION & AUTH (PREVIOUSLY VERIFIED) ---
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+            userProfile = doc.data();
+            document.getElementById('user-display-name').textContent = `${userProfile.name} (${userProfile.chantingCategory})`;
+            if (userProfile.role === 'admin') document.getElementById('admin-tab-btn').classList.remove('hidden');
+            showSection('dashboard'); switchTab('sadhana'); setupDateSelect();
+        } else showSection('profile');
+    } else showSection('auth');
+});
+
+window.switchTab = (t) => {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const target = document.getElementById(t + '-tab');
+    if (target) target.classList.remove('hidden');
+    const btn = document.querySelector(`button[onclick*="switchTab('${t}')"]`);
+    if (btn) btn.classList.add('active');
+    if (t === 'reports') loadReports(currentUser.uid, 'weekly-reports-container');
+    if (t === 'admin') loadAdminPanel();
 };
 
-// --- 7. CORE ACTIONS ---
-window.makeAdmin = async (uid) => {
-    if (confirm("Promote this user to Admin?")) {
-        await db.collection('users').doc(uid).update({ role: 'admin' });
-        alert("Role Updated!"); loadAdminPanel();
-    }
-};
+function showSection(id) {
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+    const target = document.getElementById(id + '-section');
+    if (target) target.classList.remove('hidden');
+}
 
 window.openProfileEdit = () => {
-    if (!userProfile) return;
     document.getElementById('profile-name').value = userProfile.name || "";
     document.getElementById('profile-chanting').value = userProfile.chantingCategory || "";
     document.getElementById('profile-exact-rounds').value = userProfile.exactRounds || "";
@@ -210,14 +226,10 @@ function setupDateSelect() {
         const opt = document.createElement('option'); opt.value = iso; opt.textContent = iso;
         s.appendChild(opt);
     }
-    // Effectiveness: Conditional Service area
     const sArea = document.getElementById('service-area');
-    if (sArea && userProfile.chantingCategory.match(/Level-3|Level-4/)) {
-        sArea.classList.remove('hidden');
-    }
+    if (sArea && userProfile.chantingCategory.match(/Level-3|Level-4/)) sArea.classList.remove('hidden');
 }
 
-// --- INITIAL HANDLERS ---
 document.getElementById('login-form').onsubmit = (e) => {
     e.preventDefault();
     auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message));
