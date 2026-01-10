@@ -1,4 +1,4 @@
-// --- 1. CONFIG & AUTH ---
+// --- 1. FIREBASE SETUP ---
 const firebaseConfig = {
     apiKey: "AIzaSyDbRy8ZMJAWeTyZVnTphwRIei6jAckagjA",
     authDomain: "sadhana-tracker-b65ff.firebaseapp.com",
@@ -11,7 +11,14 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
 let currentUser = null, userProfile = null, activeListener = null;
 
-// --- 2. DATE & NR HELPER ---
+// --- 2. HELPERS ---
+const t2m = (t, isSleep = false) => {
+    if (!t || t === "NR") return 9999;
+    let [h, m] = t.split(':').map(Number);
+    if (isSleep && h >= 0 && h <= 3) h += 24; 
+    return h * 60 + m;
+};
+
 function getWeekInfo(dateStr) {
     const d = new Date(dateStr);
     const sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
@@ -21,108 +28,61 @@ function getWeekInfo(dateStr) {
         const month = date.toLocaleString('en-GB', { month: 'short' });
         return `${day} ${month}`;
     };
-    return { 
-        sunStr: sun.toISOString().split('T')[0], 
-        label: `${fmt(sun)} to ${fmt(sat)}_${sun.getFullYear()}` 
-    };
+    return { sunStr: sun.toISOString().split('T')[0], label: `${fmt(sun)} to ${fmt(sat)}_${sun.getFullYear()}` };
 }
 
 function getNRData(date) {
     return {
-        id: date, totalScore: -30, dayPercent: 0,
+        id: date, totalScore: -30, dayPercent: -27,
         sleepTime: "NR", wakeupTime: "NR", chantingTime: "NR",
         readingMinutes: 0, hearingMinutes: 0, serviceMinutes: 0, daySleepMinutes: 0,
         scores: { sleep: -5, wakeup: -5, chanting: -5, reading: -5, hearing: -5, service: -5, daySleep: 0 }
     };
 }
 
-// --- 3. REPORTS UI (FIXED: Added Day Sleep Column) ---
-function loadReports(userId, containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    if (activeListener) activeListener();
-
-    activeListener = db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'desc').limit(20).onSnapshot(snap => {
-        const entries = {};
-        snap.forEach(doc => entries[doc.id] = doc.data());
-        const weeks = {};
-        
-        for (let i = 0; i < 14; i++) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            const ds = d.toISOString().split('T')[0];
-            const w = getWeekInfo(ds);
-            if (!weeks[w.sunStr]) weeks[w.sunStr] = { range: w.label, data: [], total: 0 };
-            const dayData = entries[ds] ? { id: ds, ...entries[ds] } : getNRData(ds);
-            weeks[w.sunStr].data.push(dayData);
-            weeks[w.sunStr].total += dayData.totalScore;
-        }
-
-        container.innerHTML = '';
-        Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(key => {
-            const week = weeks[key];
-            const div = document.createElement('div');
-            div.className = 'week-card';
-            div.innerHTML = `
-                <div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                    <span>📅 ${week.range}</span><strong>Score: ${week.total} ▼</strong>
-                </div>
-                <div class="week-content hidden" style="overflow-x:auto;">
-                    <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th><th>Bed</th><th>M</th><th>Wake</th><th>M</th><th>Chant</th><th>M</th>
-                                <th>Read</th><th>M</th><th>Hear</th><th>M</th><th>Seva</th><th>M</th>
-                                <th>DS(m)</th><th>Total</th><th>%</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${week.data.sort((a,b) => b.id.localeCompare(a.id)).map(e => `
-                                <tr style="${e.sleepTime === 'NR' ? 'color: red; background: #fff5f5;' : ''}">
-                                    <td>${e.id}</td>
-                                    <td>${e.sleepTime}</td><td>${e.scores?.sleep || 0}</td>
-                                    <td>${e.wakeupTime}</td><td>${e.scores?.wakeup || 0}</td>
-                                    <td>${e.chantingTime}</td><td>${e.scores?.chanting || 0}</td>
-                                    <td>${e.readingMinutes}m</td><td>${e.scores?.reading || 0}</td>
-                                    <td>${e.hearingMinutes}m</td><td>${e.scores?.hearing || 0}</td>
-                                    <td>${e.serviceMinutes || 0}m</td><td>${e.scores?.service || 0}</td>
-                                    <td>${e.daySleepMinutes || 0}</td>
-                                    <td><strong>${e.totalScore}</strong></td>
-                                    <td>${e.dayPercent}%</td>
-                                </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>`;
-            container.appendChild(div);
-        });
-    });
-}
-
-// --- 4. EXCEL DOWNLOADS (FIXED: Added Day Sleep) ---
-document.getElementById('user-download-btn').onclick = () => {
-    if(currentUser && userProfile) downloadUserExcel(currentUser.uid, userProfile.name);
-};
-
+// --- 3. DOWNLOAD LOGIC (REBUILT) ---
 window.downloadUserExcel = async (userId, userName) => {
     try {
+        if (typeof XLSX === 'undefined') {
+            alert("Excel Library not loaded. Please wait 2 seconds and try again.");
+            return;
+        }
+
         const snap = await db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'asc').get();
-        const rows = [["Date", "Bed", "M", "Wake", "M", "Chant", "M", "Read(m)", "M", "Hear(m)", "M", "Seva(m)", "M", "Day Sleep", "Total", "%"]];
+        if (snap.empty) {
+            alert("No data found to download.");
+            return;
+        }
+
+        const dataArray = [["Date", "Bed", "M", "Wake", "M", "Chant", "M", "Read(m)", "M", "Hear(m)", "M", "Seva(m)", "M", "Day Sleep", "DS M", "Total", "%"]];
+        
         snap.forEach(doc => {
             const e = doc.data();
-            rows.push([
-                doc.id, e.sleepTime, e.scores?.sleep, e.wakeupTime, e.scores?.wakeup, 
-                e.chantingTime, e.scores?.chanting, e.readingMinutes, e.scores?.reading, 
-                e.hearingMinutes, e.scores?.hearing, e.serviceMinutes||0, e.scores?.service, 
-                e.daySleepMinutes || 0, e.totalScore, e.dayPercent+"%"
+            dataArray.push([
+                doc.id, e.sleepTime || "NR", e.scores?.sleep ?? 0, 
+                e.wakeupTime || "NR", e.scores?.wakeup ?? 0, 
+                e.chantingTime || "NR", e.scores?.chanting ?? 0, 
+                e.readingMinutes || 0, e.scores?.reading ?? 0, 
+                e.hearingMinutes || 0, e.scores?.hearing ?? 0, 
+                e.serviceMinutes || 0, e.scores?.service ?? 0, 
+                e.daySleepMinutes || 0, e.scores?.daySleep ?? 0, 
+                e.totalScore ?? 0, (e.dayPercent ?? 0) + "%"
             ]);
         });
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "History");
-        XLSX.writeFile(wb, `${userName}_Sadhana_Report.xlsx`);
-    } catch (e) { alert("Download Failed"); }
+
+        const worksheet = XLSX.utils.aoa_to_sheet(dataArray);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sadhana_Sheet");
+        
+        const fileName = `${userName.replace(/\s+/g, '_')}_Sadhana.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+
+    } catch (error) {
+        console.error("Download Error:", error);
+        alert("Download Failed! Technical Error: " + error.message);
+    }
 };
 
-// Master Download (Matrix)
 window.downloadMasterReport = async () => {
     try {
         const weeks = [];
@@ -132,12 +92,16 @@ window.downloadMasterReport = async () => {
         }
         weeks.reverse();
         const usersSnap = await db.collection('users').get();
-        const rows = [["User Name", "Category", ...weeks.map(w => w.label)]];
+        const rows = [["User Name", "Category", ...weeks.map(w => w.label + " (%)")]];
+        
         for (const uDoc of usersSnap.docs) {
             const u = uDoc.data();
             const sSnap = await uDoc.ref.collection('sadhana').get();
             const sEntries = sSnap.docs.map(d => ({ date: d.id, score: d.data().totalScore || 0 }));
-            const userRow = [u.name, u.chantingCategory || 'N/A'];
+            const userRow = [u.name, u.chantingCategory || 'Level-1'];
+            const isL12 = userRow[1].includes("Level-1") || userRow[1].includes("Level-2");
+            const weeklyMax = isL12 ? 770 : 1120;
+
             weeks.forEach(w => {
                 let weekTotal = 0; let curr = new Date(w.sunStr);
                 for (let i = 0; i < 7; i++) {
@@ -146,56 +110,18 @@ window.downloadMasterReport = async () => {
                     weekTotal += entry ? entry.score : -30;
                     curr.setDate(curr.getDate() + 1);
                 }
-                userRow.push(weekTotal);
+                userRow.push(Math.round((weekTotal / weeklyMax) * 100) + "%");
             });
             rows.push(userRow);
         }
         const ws = XLSX.utils.aoa_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Comparative");
-        XLSX.writeFile(wb, "Master_Comparative_Report.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Master_Report");
+        XLSX.writeFile(wb, "Master_Sadhana_Report.xlsx");
     } catch (e) { alert("Master Download Failed"); }
 };
 
-// --- 5. FORM SUBMISSIONS ---
-document.getElementById('sadhana-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const date = document.getElementById('sadhana-date').value;
-    const entry = {
-        sleepTime: document.getElementById('sleep-time').value,
-        wakeupTime: document.getElementById('wakeup-time').value,
-        chantingTime: document.getElementById('chanting-time').value,
-        readingMinutes: (parseInt(document.getElementById('reading-hrs').value)||0)*60 + (parseInt(document.getElementById('reading-mins').value)||0),
-        hearingMinutes: (parseInt(document.getElementById('hearing-hrs').value)||0)*60 + (parseInt(document.getElementById('hearing-mins').value)||0),
-        serviceMinutes: (parseInt(document.getElementById('service-hrs')?.value)||0)*60 + (parseInt(document.getElementById('service-mins')?.value)||0),
-        daySleepMinutes: parseInt(document.getElementById('day-sleep-minutes').value) || 0,
-        submittedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    // Default scoring for now
-    entry.scores = { sleep: 25, wakeup: 25, chanting: 25, reading: 25, hearing: 25, service: 10 };
-    entry.totalScore = 135;
-    entry.dayPercent = 100;
-
-    await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set(entry);
-    alert("Sadhana Submitted!");
-    switchTab('reports');
-};
-
-document.getElementById('profile-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const data = {
-        name: document.getElementById('profile-name').value,
-        chantingCategory: document.getElementById('profile-chanting').value,
-        exactRounds: document.getElementById('profile-exact-rounds').value,
-        role: userProfile?.role || 'user'
-    };
-    await db.collection('users').doc(currentUser.uid).set(data, { merge: true });
-    alert("Profile Saved!");
-    location.reload();
-};
-
-// --- 6. CORE LOGIC ---
+// --- 4. AUTH & NAVIGATION ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
@@ -224,6 +150,88 @@ function showSection(id) {
     document.getElementById(id + '-section').classList.remove('hidden');
 }
 
+// --- 5. REPORT UI (NR RED COLOR FIX) ---
+function loadReports(userId, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (activeListener) activeListener();
+    activeListener = db.collection('users').doc(userId).collection('sadhana').orderBy('submittedAt', 'desc').limit(20).onSnapshot(snap => {
+        const entries = {}; snap.forEach(doc => entries[doc.id] = doc.data());
+        const weeks = {};
+        for (let i = 0; i < 14; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const ds = d.toISOString().split('T')[0];
+            const w = getWeekInfo(ds);
+            if (!weeks[w.sunStr]) weeks[w.sunStr] = { range: w.label, data: [], total: 0 };
+            const dayData = entries[ds] ? { id: ds, ...entries[ds] } : getNRData(ds);
+            weeks[w.sunStr].data.push(dayData); weeks[w.sunStr].total += dayData.totalScore;
+        }
+        container.innerHTML = '';
+        Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(key => {
+            const week = weeks[key];
+            const div = document.createElement('div');
+            div.className = 'week-card';
+            div.innerHTML = `<div class="week-header" onclick="this.nextElementSibling.classList.toggle('hidden')"><span>📅 ${week.range}</span><strong>Score: ${week.total} ▼</strong></div>
+                <div class="week-content hidden" style="overflow-x:auto;"><table class="admin-table">
+                <thead><tr><th>Date</th><th>Bed</th><th>M</th><th>Wake</th><th>M</th><th>Chant</th><th>M</th><th>Read</th><th>M</th><th>Hear</th><th>M</th><th>Total</th><th>%</th></tr></thead>
+                <tbody>${week.data.sort((a,b) => b.id.localeCompare(a.id)).map(e => {
+                    const rowStyle = e.sleepTime === 'NR' ? 'style="background:#fff5f5; color:red;"' : '';
+                    return `<tr ${rowStyle}><td>${e.id.split('-').slice(1).join('/')}</td><td>${e.sleepTime}</td><td>${e.scores?.sleep}</td><td>${e.wakeupTime}</td><td>${e.scores?.wakeup}</td><td>${e.chantingTime}</td><td>${e.scores?.chanting}</td><td>${e.readingMinutes}m</td><td>${e.scores?.reading}</td><td>${e.hearingMinutes}m</td><td>${e.scores?.hearing}</td><td>${e.totalScore}</td><td>${e.dayPercent}%</td></tr>`;
+                }).join('')}</tbody></table></div>`;
+            container.appendChild(div);
+        });
+    });
+}
+
+// --- 6. SCORING & FORM ---
+document.getElementById('sadhana-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const date = document.getElementById('sadhana-date').value;
+    const level = userProfile.chantingCategory || "Level-1";
+    const slp = document.getElementById('sleep-time').value;
+    const wak = document.getElementById('wakeup-time').value;
+    const chn = document.getElementById('chanting-time').value;
+    const rMin = (parseInt(document.getElementById('reading-hrs').value) || 0) * 60 + (parseInt(document.getElementById('reading-mins').value) || 0);
+    const hMin = (parseInt(document.getElementById('hearing-hrs').value) || 0) * 60 + (parseInt(document.getElementById('hearing-mins').value) || 0);
+    const sMin = (parseInt(document.getElementById('service-hrs')?.value) || 0) * 60 + (parseInt(document.getElementById('service-mins')?.value) || 0);
+    const dsMin = parseInt(document.getElementById('day-sleep-minutes').value) || 0;
+
+    const sc = { sleep: -5, wakeup: -5, chanting: -5, reading: -5, hearing: -5, service: -5, daySleep: 0 };
+    const slpM = t2m(slp, true);
+    if (slpM <= 1350) sc.sleep = 25; else if (slpM <= 1355) sc.sleep = 20; else if (slpM <= 1360) sc.sleep = 15; else if (slpM <= 1365) sc.sleep = 10; else if (slpM <= 1370) sc.sleep = 5; else if (slpM <= 1375) sc.sleep = 0;
+
+    const wakM = t2m(wak, false);
+    const isL12 = level.includes("Level-1") || level.includes("Level-2");
+    const targetW = isL12 ? 365 : 305;
+    if (wakM <= targetW) sc.wakeup = 25; else if (wakM <= targetW+5) sc.wakeup = 20; else if (wakM <= targetW+10) sc.wakeup = 15; else if (wakM <= targetW+15) sc.wakeup = 10; else if (wakM <= targetW+20) sc.wakeup = 5; else if (wakM <= targetW+25) sc.wakeup = 0;
+
+    const chnM = t2m(chn, false);
+    if (chnM <= 540) sc.chanting = 25; else if (chnM <= 570) sc.chanting = 20; else if (chnM <= 660) sc.chanting = 15; else if (chnM <= 870) sc.chanting = 10; else if (chnM <= 1020) sc.chanting = 5; else if (chnM <= 1140) sc.chanting = 0;
+
+    sc.daySleep = (dsMin <= 60) ? 10 : -5;
+    const getScore = (m, isL4) => {
+        const tgt = isL4 ? 40 : 30;
+        if (m >= tgt) return 25; if (m >= tgt-10) return 20; if (m >= 20) return 15; if (m >= 15) return 10; if (m >= 10) return 5; if (m >= 5) return 0; return -5;
+    };
+    const isL4 = level.includes("Level-4");
+    const rRaw = getScore(rMin, isL4); const hRaw = getScore(hMin, isL4); const sRaw = getScore(sMin, false);
+    let actScore = 0; let maxM = 160;
+    if (isL12) {
+        sc.reading = Math.max(0, rRaw); sc.hearing = Math.max(0, hRaw); sc.service = 0;
+        actScore = Math.max(sc.reading, sc.hearing); maxM = 110;
+    } else {
+        sc.reading = rRaw; sc.hearing = hRaw; sc.service = sRaw;
+        actScore = sc.reading + sc.hearing + sc.service;
+    }
+    const total = sc.sleep + sc.wakeup + sc.chanting + sc.daySleep + actScore;
+    await db.collection('users').doc(currentUser.uid).collection('sadhana').doc(date).set({
+        sleepTime: slp, wakeupTime: wak, chantingTime: chn, readingMinutes: rMin, hearingMinutes: hMin, serviceMinutes: sMin, daySleepMinutes: dsMin,
+        scores: sc, totalScore: total, dayPercent: Math.round((total/maxM)*100), levelAtSubmission: level, submittedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert("Success! Score: " + total); switchTab('reports');
+};
+
+// --- 7. ADMIN PANEL ---
 async function loadAdminPanel() {
     const tableContainer = document.getElementById('admin-comparative-reports-container');
     const usersList = document.getElementById('admin-users-list');
@@ -234,13 +242,15 @@ async function loadAdminPanel() {
     }
     weeks.reverse();
     const usersSnap = await db.collection('users').get();
-    let tableHtml = `<table class="admin-table"><thead><tr><th>User</th><th>Cat</th>${weeks.map(w => `<th>${w.label}</th>`).join('')}</tr></thead><tbody>`;
+    let html = `<table class="admin-table"><thead><tr><th>User</th><th>Cat</th>${weeks.map(w => `<th>${w.label} (%)</th>`).join('')}</tr></thead><tbody>`;
     usersList.innerHTML = '';
     for (const uDoc of usersSnap.docs) {
         const u = uDoc.data();
-        tableHtml += `<tr><td>${u.name}</td><td>${u.chantingCategory || 'N/A'}</td>`;
+        html += `<tr><td>${u.name}</td><td>${u.chantingCategory || 'N/A'}</td>`;
         const sSnap = await uDoc.ref.collection('sadhana').get();
         const sEntries = sSnap.docs.map(d => ({ date: d.id, score: d.data().totalScore || 0 }));
+        const isL12 = (u.chantingCategory || "").includes("Level-1") || (u.chantingCategory || "").includes("Level-2");
+        const weeklyMax = isL12 ? 770 : 1120;
         weeks.forEach(w => {
             let weekTotal = 0; let curr = new Date(w.sunStr);
             for (let i = 0; i < 7; i++) {
@@ -249,38 +259,29 @@ async function loadAdminPanel() {
                 weekTotal += entry ? entry.score : -30;
                 curr.setDate(curr.getDate() + 1);
             }
-            tableHtml += `<td>${weekTotal}</td>`;
+            html += `<td>${Math.round((weekTotal/weeklyMax)*100)}%</td>`;
         });
-        tableHtml += `</tr>`;
-
+        html += `</tr>`;
         const uDiv = document.createElement('div');
-        uDiv.className = 'card';
-        uDiv.style = "margin-bottom:10px; padding:12px; display:flex; justify-content:space-between; align-items:center;";
-        uDiv.innerHTML = `
-            <div><strong>${u.name}</strong><br><small>${u.role || 'user'}</small></div>
+        uDiv.className = 'card'; uDiv.style = "margin-bottom:10px; padding:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;";
+        uDiv.innerHTML = `<div><strong>${u.name}</strong><br><small>${u.role || 'user'}</small></div>
             <div style="display:flex; gap:5px;">
-                <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px; font-size:12px;">History</button>
-                <button onclick="downloadUserExcel('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px; font-size:12px; background:green;">Excel</button>
-                ${u.role === 'admin' ? 
-                    `<button onclick="removeAdmin('${uDoc.id}')" style="width:auto; padding:5px; font-size:12px; background:red;">Remove Admin</button>` : 
-                    `<button onclick="makeAdmin('${uDoc.id}')" style="width:auto; padding:5px; font-size:12px; background:orange;">Make Admin</button>`
-                }
+                <button onclick="openUserModal('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px 10px; font-size:12px;">History</button>
+                <button onclick="downloadUserExcel('${uDoc.id}', '${u.name}')" style="width:auto; padding:5px 10px; font-size:12px; background:green;">Excel</button>
+                <button onclick="handleAdminChange('${uDoc.id}', '${u.role === 'admin' ? 'user' : 'admin'}')" style="width:auto; padding:5px 10px; font-size:12px; background:orange;">${u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>
             </div>`;
         usersList.appendChild(uDiv);
     }
-    tableContainer.innerHTML = tableHtml + `</tbody></table>`;
+    tableContainer.innerHTML = html + `</tbody></table>`;
 }
 
-window.makeAdmin = async (uid) => { if (confirm("Promote?")) { await db.collection('users').doc(uid).update({ role: 'admin' }); loadAdminPanel(); } };
-window.removeAdmin = async (uid) => { if (confirm("Remove?")) { await db.collection('users').doc(uid).update({ role: 'user' }); loadAdminPanel(); } };
-window.openUserModal = (id, name) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container'); };
-window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
-window.openProfileEdit = () => {
-    document.getElementById('profile-name').value = userProfile.name || "";
-    document.getElementById('profile-chanting').value = userProfile.chantingCategory || "";
-    document.getElementById('profile-exact-rounds').value = userProfile.exactRounds || "";
-    document.getElementById('cancel-edit').classList.remove('hidden');
-    showSection('profile');
+window.handleAdminChange = async (uid, newRole) => {
+    if (confirm(`Change user to ${newRole}?`)) {
+        if (confirm("Final confirmation?")) {
+            await db.collection('users').doc(uid).update({ role: newRole });
+            alert("Updated!"); loadAdminPanel();
+        }
+    }
 };
 
 function setupDateSelect() {
@@ -292,8 +293,17 @@ function setupDateSelect() {
         s.appendChild(opt);
     }
     const sArea = document.getElementById('service-area');
-    if (sArea && userProfile.chantingCategory.match(/Level-3|Level-4/)) sArea.classList.remove('hidden');
+    if (sArea && userProfile?.chantingCategory?.match(/Level-3|Level-4/)) sArea.classList.remove('hidden');
 }
 
+document.getElementById('profile-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const data = { name: document.getElementById('profile-name').value, chantingCategory: document.getElementById('profile-chanting').value, exactRounds: document.getElementById('profile-exact-rounds').value, role: userProfile?.role || 'user' };
+    await db.collection('users').doc(currentUser.uid).set(data, { merge: true });
+    alert("Profile Saved!"); location.reload();
+};
 document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value).catch(err => alert(err.message)); };
 document.getElementById('logout-btn').onclick = () => auth.signOut();
+window.openUserModal = (id, name) => { document.getElementById('user-report-modal').classList.remove('hidden'); document.getElementById('modal-user-name').textContent = name; loadReports(id, 'modal-report-container'); };
+window.closeUserModal = () => document.getElementById('user-report-modal').classList.add('hidden');
+window.openProfileEdit = () => { document.getElementById('profile-name').value = userProfile.name; document.getElementById('profile-chanting').value = userProfile.chantingCategory; document.getElementById('profile-exact-rounds').value = userProfile.exactRounds; document.getElementById('cancel-edit').classList.remove('hidden'); showSection('profile'); };
