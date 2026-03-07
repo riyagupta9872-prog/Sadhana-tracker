@@ -765,13 +765,25 @@
             <label class="form-label">Full Name</label>
             <input type="text" id="profile-name" placeholder="Full Name" required>
 
+              <label class="form-label">Chanting Category</label>
+            <select id="profile-chanting" required>
+                <option value="" disabled selected>Select chanting category</option>
+                <option value="0-4 rounds">0-4 Rounds</option>
+                <option value="4-8 rounds">4-8 Rounds</option>
+                <option value="8-16 rounds">8-16 Rounds</option>
+                <option value="16+ rounds">16+ Rounds</option>
+            </select>
+
+            <label class="form-label">Current Exact Rounds</label>
+            <input type="number" id="profile-exact-rounds" placeholder="e.g. 12" required>
+
             <label class="form-label">Level (for Scoring)</label>
             <select id="profile-level" required>
                 <option value="" disabled selected>Select your level</option>
-                <option value="Level-1">Level-1 (1–4 Rounds)</option>
-                <option value="Level-2">Level-2 (5–8 Rounds)</option>
-                <option value="Level-3">Level-3 (9–15 Rounds)</option>
-                <option value="Level-4">Level-4 (16 Rounds)</option>
+                <option value="Level-1">Level-1</option>
+                <option value="Level-2">Level-2</option>
+                <option value="Level-3">Level-3</option>
+                <option value="Level-4">Level-4</option>
             </select>
 
             <label class="form-label">Department</label>
@@ -787,18 +799,6 @@
             <select id="profile-team" required>
                 <option value="" disabled selected>Select team (choose dept first)</option>
             </select>
-
-            <label class="form-label">Chanting Category</label>
-            <select id="profile-chanting" required>
-                <option value="" disabled selected>Select chanting category</option>
-                <option value="0-4 rounds">0-4 Rounds</option>
-                <option value="4-8 rounds">4-8 Rounds</option>
-                <option value="8-16 rounds">8-16 Rounds</option>
-                <option value="16+ rounds">16+ Rounds</option>
-            </select>
-
-            <label class="form-label">Current Exact Rounds</label>
-            <input type="number" id="profile-exact-rounds" placeholder="e.g. 12" required>
 
             <button type="submit" class="btn-success" style="margin-top:16px;">Save &amp; Continue</button>
             <button type="button" onclick="showSection('dashboard')" id="cancel-edit" class="btn-gray hidden">Cancel</button>
